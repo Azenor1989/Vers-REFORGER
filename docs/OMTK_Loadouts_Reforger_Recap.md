@@ -6,7 +6,7 @@
 
 ## 1. Contexte
 
-Le module `infantry_loadouts` d'OMTK (Arma 3, SQF) équipe automatiquement les unités selon leur classe/faction, en s'appuyant sur `@RHSmod`. Sur Reforger, il n'existe pas de mod RHS équivalent, et le système d'équipement fonctionne de façon radicalement différente : moins de script, beaucoup plus de configuration et de prefabs.
+Le module `infantry_loadouts` d'OMTK (Arma 3, SQF) équipe automatiquement les unités selon leur classe/faction, en s'appuyant sur `@RHSmod`. Sur Reforger, RHS existe sous le nom **RHS: Status Quo** (voir §9), mais le système d'équipement fonctionne de façon radicalement différente : moins de script, beaucoup plus de configuration et de prefabs.
 
 ---
 
@@ -72,6 +72,9 @@ Processus type (d'après le tutoriel *Faction Creation*) :
 | Setup général de game mode | `community.bistudio.com/wiki/Arma_Reforger:General_Game_Mode_Setup` |
 | Config d'arme/arsenal | `community.bistudio.com/wiki/Arma_Reforger:Weapon_Creation/Prefab_Configuration` |
 | Assets/Tutorials (liste, dont Faction Creation) | `community.bistudio.com/wiki/Category:Arma_Reforger/Modding/Assets/Tutorials` |
+| RHS: Status Quo — documentation | `docs.rhsmods.org/rhs-status-quo-user-documentation/arma-reforger/rhs-status-quo` |
+| RHS: Status Quo — EULA | `docs.rhsmods.org/rhs-status-quo-user-documentation/arma-reforger/rhs-status-quo/eula` |
+| RHS: Status Quo — Workshop | `reforger.armaplatform.com/workshop/595F2BF2F44836FB-RHS-StatusQuo` |
 
 ---
 
@@ -79,7 +82,35 @@ Processus type (d'après le tutoriel *Faction Creation*) :
 
 - Construire un premier personnage de base OFCRA complet et vérifier le rendu des 6 emplacements d'équipement.
 - Tester une config de faction custom minimale (non-Conflict d'abord) avant de passer à l'intégration Conflict complète (plus lourde).
-- Vérifier si un vrai mod RHS-like existe côté Workshop pour se rapprocher visuellement de l'équipement actuel, plutôt que tout retexturer depuis les assets vanilla.
+- Évaluer la couverture réelle des assets RHS: Status Quo par rapport aux besoins OFCRA (voir §9).
+
+---
+
+## 9. RHS sur Reforger : RHS: Status Quo
+
+RHS existe bien sur Reforger, sous le nom **RHS: Status Quo**, disponible sur le Workshop et activement développé (changelog actif à la mi-2026, version 0.9).
+
+**Différences avec le RHS d'Arma 3 :**
+- Cadre **contemporain** (2000 à aujourd'hui, cœur vers 2017) plutôt que Guerre froide.
+- **Toutes les factions dans un seul mod**, au lieu des paquets séparés RHSUSAF / RHSAFRF / RHSGREF / RHSSAF.
+- Factions principales : **AFRF** (Fédération de Russie) et **USAF** (forces américaines) ; MSV et USMC sont devenues des branches lors de la refonte du système de factions en 0.9.
+- Deux canaux de distribution : une version de développement continu et une version stable.
+- Maturité : la 0.9 n'est pas complète, et l'équipe annonce viser la qualité plutôt que le volume — le catalogue d'assets ne rattrapera pas celui d'Arma 3 avant longtemps, si jamais.
+
+**Précédent utile :** des mods communautaires définissent déjà des factions BLUFOR/REDFOR/INDFOR par-dessus RHS: Status Quo (par exemple *Freedom Fighters - RHS Faction*). Le schéma que vise l'OFCRA a donc des implémentations qui tournent, à étudier avant de partir de zéro.
+
+### Contraintes de licence (EULA RHS)
+
+RHS: Status Quo est sous **Creative Commons BY-NC-ND 4.0**. Le contenu dérivé englobe tout mod de dépendance qui utilise ou modifie les fichiers RHS — **nos configs de faction en feraient partie dès qu'elles référencent des classes RHS**. Ces mods sont *tolérés*, pas autorisés de droit, sous réserve de règles strictes :
+
+- **Publication publique obligatoire** sur le Workshop ; les mods dérivés non listés ne sont pas admis.
+- **Licence non-dérivative imposée** sur le mod dérivé (l'APL-ND est citée en exemple) — ce qui exclut une licence permissive.
+- **Lien vers la page EULA de RHS** dans la description du mod.
+- **Aucune monétisation** : sont visés notamment les accès prioritaires payants aux serveurs, les avantages en jeu vendus, et les objectifs de dons donnant droit à des perks. À examiner si l'OFCRA a un système de dons lié à des contreparties en jeu.
+- **Distribution uniquement via le Workshop officiel** ; interdiction d'embarquer les fichiers RHS dans son propre paquet.
+- **Interdiction de représenter les conflits en cours** (Ukraine, Israël-Palestine), marquages Z/O/V compris — contrainte de design pour les scénarios.
+
+RHS maintient également une liste de groupes exclus de tout usage de ses mods. À vérifier avant d'engager le projet.
 
 ---
 
