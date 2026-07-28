@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/30430185/README.md)
 # Vers REFORGER
 
 Travaux préparatoires à la migration d'**OMTK** (OFCRA Mission ToolKit) d'Arma 3 vers **Arma Reforger**.
@@ -12,7 +11,8 @@ Travaux préparatoires à la migration d'**OMTK** (OFCRA Mission ToolKit) d'Arma
 
 ## Le constat de départ
 
-Ce n'est pas un portage, c'est une réécriture. Le SQF n'existe pas sous Enfusion, `@RHSmod` non plus,
+Ce n'est pas un portage, c'est une réécriture. Le SQF n'existe pas sous Enfusion, `@RHSmod` y devient
+**RHS: Status Quo** — un mod distinct, plus jeune et au catalogue bien plus restreint (voir « À définir ») —,
 et l'éditeur Eden est remplacé par le World Editor. Ce qui survit, c'est le **découpage fonctionnel**
 d'OMTK — pas son code.
 
@@ -101,7 +101,14 @@ Corriger ces documents contre le comportement réel du Workbench est l'objet de 
 
 ## À définir
 
-- **Licence.** Rien n'est fixé pour l'instant ; à aligner sur celle d'OMTK, et à vérifier
-  contre la Arma Public License si du code des samples Bohemia est réutilisé.
+- **Dépendre de RHS ou non.** C'est la décision structurante du projet, à trancher tôt avec
+  l'OFCRA. **RHS: Status Quo** existe sur Reforger et est activement développé, mais son
+  catalogue reste loin de celui d'Arma 3, et son EULA impose des contraintes fortes à tout mod
+  qui en dépend — publication publique obligatoire, licence non-dérivative, aucune monétisation.
+  Détail complet dans le [récapitulatif `infantry_loadouts`](docs/OMTK_Loadouts_Reforger_Recap.md), §9.
+- **Licence.** Non fixée. Si le projet dépend de RHS, la réponse est contrainte : une licence
+  non-dérivative de type APL-ND, ce qui exclut toute licence permissive. Sinon, à aligner sur
+  celle d'OMTK, et à vérifier contre l'Arma Public License si du code des samples Bohemia
+  est réutilisé.
 - **`.gitignore` Workbench.** Les fichiers de cache générés par l'outil ne sont pas encore
   connus — à compléter après l'étape 1.
