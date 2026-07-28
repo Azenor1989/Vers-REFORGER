@@ -69,7 +69,7 @@ Le Workbench reste disponible en parallèle pour une construction plus poussée 
 - les **Slots de spawn** utilisent les mêmes prefabs `SpawnPoint_*.et` que ceux vus dans le récap [`infantry_loadouts`](OMTK_Loadouts_Reforger_Recap.md) ;
 - la **faction propriétaire** d'une tâche s'appuie sur les mêmes clés de faction que `SCR_FactionManager` ;
 - le **résultat des tâches** (complétées/échouées) alimenterait le score répliqué via `[RplProp]`, comme documenté dans le récap [`score_board`](OMTK_ScoreBoard_Reforger_Recap.md) ;
-- un point de spawn peut aussi être **dynamique et porté par un joueur** plutôt qu'un prefab fixe posé dans le monde : une radio manpack vivante sert de point de respawn d'équipe en mode Conflict (voir récap [`radio_lock`/`radio_settings`](OMTK_Radio_Reforger_Recap.md), §4) — un second mécanisme de spawn à prévoir en plus des `Slot` fixes du Scenario Framework.
+- un point de spawn peut aussi être **dynamique et porté par un joueur** — une radio manpack vivante sert de point de respawn d'équipe en mode Conflict (voir récap [`radio_lock`/`radio_settings`](OMTK_Radio_Reforger_Recap.md), §4). **Sans objet pour l'OFCRA**, qui joue sans respawn (voir §9) ; noté ici pour mémoire si un autre usage se présentait.
 
 Encore une fois : moins de script à écrire, plus de structure déclarative (prefabs + config) à organiser correctement.
 
@@ -97,3 +97,17 @@ Encore une fois : moins de script à écrire, plus de structure déclarative (pr
 ---
 
 *Document généré à partir des recherches menées en session — à vérifier et corriger contre le comportement réel du Workbench (voir §8).*
+
+---
+
+## 9. Contexte OFCRA : pas de respawn, insertion initiale uniquement
+
+L'OFCRA joue **sans aucun respawn** : un joueur tué reste hors jeu jusqu'à la fin de la mission. Tout ce qui touche au respawn dans Reforger — `SCR_RespawnSystemComponent` en cours de partie, respawn sur radio manpack, minuteurs de vague — est donc **hors périmètre**.
+
+Ce qui compte est l'**insertion initiale**, et elle est plus structurée qu'un point de départ unique. Sur une mission type, chaque escouade démarre à un emplacement qui lui est propre : hors de l'île principale pour le commandement, les hélicoptères et plusieurs escouades ; sur l'île au nord ou au sud pour les autres. Des groupes de véhicules sont rattachés à chacun de ces emplacements.
+
+**Ce que ça implique concrètement :**
+
+- Un `Slot` du Scenario Framework par emplacement de départ, avec le prefab de point d'insertion et les véhicules associés.
+- Pas de logique de réapparition à écrire, ce qui **simplifie nettement** le portage par rapport à ce que laissait supposer la documentation générale de Reforger, très orientée Conflict.
+- En revanche, une contrainte que Conflict ne connaît pas : les créneaux sont **réservés par escouade membre** (indicatifs entre crochets dans les listes de slots). Le mécanisme de sélection de rôle doit pouvoir refléter ces réservations.
