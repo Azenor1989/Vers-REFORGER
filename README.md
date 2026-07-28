@@ -9,12 +9,38 @@ Travaux préparatoires à la migration d'**OMTK** (OFCRA Mission ToolKit) d'Arma
 
 ---
 
+## Le préalable : le nombre de joueurs
+
+**À trancher avant tout le reste, y compris avant d'écrire une ligne de code.**
+
+L'OFCRA réunit couramment **100 à 130 joueurs** par session publique, avec des pics historiques
+au-delà de 200. Or Arma Reforger **plafonne à 128 joueurs** par configuration serveur, la plupart
+des scénarios étant calibrés pour 32 à 64. Les retours de la communauté décrivent des serveurs
+à 128 déjà en difficulté, le moteur répliquant l'ensemble de l'état de jeu — joueurs, véhicules,
+structures, projectiles.
+
+À cela s'ajoute que l'optimisation courante consistant à désactiver l'IA côté serveur pour libérer
+du CPU n'est pas utilisable telle quelle : l'OFCRA emploie de l'IA non combattante (civils, otages)
+sur certaines missions. L'impact reste faible vu les volumes en jeu, mais la marge n'est pas là.
+
+**Aucun portage de module ne résout ce problème.** Tant qu'il n'est pas tranché, le reste de ce dépôt
+décrit comment migrer OMTK, pas si la migration est jouable pour un format à 100+ joueurs.
+Les pistes à explorer : mesurer le comportement réel d'un serveur modé à cette échelle, envisager
+des formats à effectifs réduits, ou attendre les évolutions du moteur.
+
+---
+
 ## Le constat de départ
 
 Ce n'est pas un portage, c'est une réécriture. Le SQF n'existe pas sous Enfusion, `@RHSmod` y devient
 **RHS: Status Quo** — un mod distinct, plus jeune et au catalogue bien plus restreint (voir « À définir ») —,
 et l'éditeur Eden est remplacé par le World Editor. Ce qui survit, c'est le **découpage fonctionnel**
 d'OMTK — pas son code.
+
+Trois particularités de l'OFCRA orientent tout ce qui suit, et ne correspondent pas aux usages
+pour lesquels Reforger est documenté : **aucun respawn**, **aucune IA combattante** (seulement
+des civils et otages, occasionnellement), et une **mission inédite chaque semaine** plutôt qu'un
+mode de jeu persistant. Les récapitulatifs signalent au cas par cas ce que ça rend sans objet.
 
 ### OMTK aujourd'hui
 
