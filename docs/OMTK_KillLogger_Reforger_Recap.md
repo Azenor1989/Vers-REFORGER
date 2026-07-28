@@ -84,3 +84,24 @@ C'est l'équivalent direct de notre écriture dans le `.RPT` : une classe `FileI
 ---
 
 *Document généré à partir des recherches menées en session — à vérifier et corriger contre le comportement réel du Workbench (voir §7).*
+
+---
+
+## 8. Contexte OFCRA : le logger alimente toute une chaîne de données
+
+`kill_logger` n'est pas un fichier de log isolé. À l'OFCRA, il est l'amont d'un écosystème complet :
+
+- **OCAP**, l'outil de capture qui enregistre les missions et permet de les rejouer ;
+- le **centre de statistiques** (`aar.ofcra.org/stats`), alimenté depuis 2017 : plus de 900 missions enregistrées, plusieurs milliers de joueurs, des dizaines de milliers de kills, avec des vues par mission, joueur, carte et arme.
+
+**Ce que ça change pour le portage :**
+
+Migrer `kill_logger` seul ne suffit pas. Si la chaîne OCAP → statistiques n'est pas portée ou remplacée, l'OFCRA perd son historique vivant et ses analyses d'après-partie — ce qui pèse probablement plus lourd, pour les membres, que n'importe quel module de mission.
+
+**C'est un chantier à part entière, à traiter comme tel :**
+
+- vérifier si OCAP existe ou est en cours de portage sur Reforger, ou s'il faut un équivalent ;
+- déterminer le format de sortie attendu par la chaîne de statistiques existante, pour éventuellement le reproduire et conserver la continuité de l'historique ;
+- arbitrer entre un mod de logging pur (via `FileIO`, §3) et une solution côté serveur externe — l'approche que représente ReforgerJS (§4) mérite un examen sérieux ici, puisqu'elle capte déjà kills, dégâts, tirs amis et connexions en temps réel.
+
+À évaluer **avant** de considérer la migration comme faisable, au même titre que la question du plafond de joueurs.

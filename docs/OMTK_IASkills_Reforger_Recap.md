@@ -77,3 +77,22 @@ Plusieurs retours de joueurs pointent une IA équipée de RPG perçue comme quas
 ---
 
 *Document généré à partir des recherches menées en session — à vérifier et corriger contre le comportement réel du Workbench (voir §8).*
+
+---
+
+## 9. Contexte OFCRA : usage réel de l'IA
+
+L'OFCRA joue en **TvT sans IA combattante**. L'IA sert uniquement à des rôles **non combattants** — civils, otages — sur certaines missions seulement, et jamais en grand nombre (pas de dizaines d'entités simultanées).
+
+**Ce que ça change pour la configuration :**
+
+Le paradigme Reforger colle mieux à ce besoin que celui d'Arma 3. Plutôt que de ramener un `skill` à zéro en espérant que l'unité reste passive, on décoche directement les comportements de combat sur `SCR_AIConfigComponent` :
+
+- réagir aux événements de danger → décoché ;
+- réagir aux cibles perçues → décoché ;
+- tirer et attaquer en général → décoché ;
+- chercher et prendre une couverture → décoché.
+
+L'entité reste vivante et animée, sans logique de combat. Le curseur `Unit skill` et le réglage fin par type d'arme (`WeaponTypeHandlingConfig`, §4) deviennent en revanche sans objet — ils ne concernent que l'IA combattante.
+
+**Conséquence côté serveur :** l'option `disableAI: true`, couramment recommandée en PvP pur pour libérer du CPU et gagner des créneaux joueurs, **n'est pas utilisable** puisqu'il faut pouvoir faire apparaître civils et otages. L'impact reste faible vu le volume d'IA en jeu, mais c'est une marge de performance en moins — à garder en tête au vu du plafond de joueurs (voir le README).
