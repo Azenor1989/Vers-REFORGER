@@ -108,3 +108,26 @@ Fin de partie :
 ---
 
 *Document généré à partir des recherches menées en session — à vérifier et corriger contre le comportement réel du Workbench (voir §8).*
+
+---
+
+## 9. Contexte OFCRA : structure réelle des objectifs
+
+Le barème d'une mission OFCRA est plus riche que le simple couple objectif/point. Sur une mission type de 90 minutes, on trouve :
+
+**Trois familles d'objectifs**
+- **Communs aux deux camps** — typiquement le contrôle de zones (une zone d'éoliennes, une usine, une ville), chacune valant 2 à 3 points.
+- **Propres au BLUFOR** — défendre des installations, empêcher une action adverse.
+- **Propres au REDFOR** — le miroir : détruire ces mêmes installations, réussir l'action.
+
+**Des points différenciés** : chaque objectif porte sa propre valeur, y compris à l'intérieur d'un lot (« 3 installations à défendre, 1 point chacune »).
+
+**Des verrouillages échelonnés** : les objectifs ne se ferment pas tous à la fin. Sur une mission de 90 minutes, certains se verrouillent à 60 minutes, d'autres à 75, les derniers seulement à l'expiration du temps. Une fois verrouillé, l'état d'un objectif est figé quoi qu'il arrive ensuite sur le terrain.
+
+**La survie comme objectif** : « le chef de camp a survécu » vaut des points, pour chaque camp.
+
+**Ce que ça implique pour l'implémentation :**
+
+- La notion de **faction propriétaire** d'une tâche (`SCR_TaskSystem`, voir récap [`dynamic_startup`](OMTK_DynamicStartup_Reforger_Recap.md), §4) couvre nativement la distinction commun / BLUFOR / REDFOR.
+- Le **verrouillage horodaté par objectif** n'a en revanche pas d'équivalent évident : c'est probablement la part la plus spécifique à écrire, sous forme d'un état « figé » atteint à un instant configuré par objectif, et non à la fin de partie.
+- Le score final doit distinguer **objectif rempli** et **objectif verrouillé sur un échec**, les deux étant des états terminaux différents en cours de partie.
