@@ -49,6 +49,7 @@ Pas besoin de réinventer un système de minuterie manuel comme en SQF — l'ét
 | Setup général de game mode (états PREGAME/GAME/POSTGAME) | `community.bistudio.com/wiki/Arma_Reforger:General_Game_Mode_Setup` |
 | Paramètres de démarrage serveur (`-autoreload`, etc.) | `community.bistudio.com/wiki/Arma_Reforger:Startup_Parameters` |
 | Configuration serveur (`lobbyPlayerSync`) | `low.ms/knowledgebase/arma-reforger-server-configuration` |
+| Explorateur de code source du jeu | `arexplorer.zeroy.com` — utile pour vérifier un nom de classe/méthode avant de coder |
 
 ---
 
