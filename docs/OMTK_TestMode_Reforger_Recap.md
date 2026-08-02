@@ -42,6 +42,7 @@ Concrètement, ça veut dire que l'équivalent OFCRA de `test_mode` serait proba
 | Exécutables Diag et debug | `community.bistudio.com/wiki/Arma_Reforger:Development_Executables` |
 | Changements scripting 1.1 (mention des exécutables Diag) | `reforger.armaplatform.com/news/modding-update-scripting-1-1` |
 | Scripting First Steps (Remote Console) | `community.bistudio.com/wiki/Arma_Reforger:Scripting_First_Steps` |
+| Explorateur de code source du jeu | `arexplorer.zeroy.com` — utile pour vérifier un nom de classe/méthode avant de coder |
 
 ---
 
