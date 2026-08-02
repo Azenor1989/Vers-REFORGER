@@ -83,17 +83,23 @@ Les outils compagnons disparaissent : `omtk-groups` devient de l'héritage de pr
 
 | # | Étape | État |
 |---|---|---|
-| 1 | Prise en main du Workbench (installation, tutoriels, samples officiels) | à faire |
+| 1 | Prise en main du Workbench (installation, tutoriels, samples officiels) | **fait** — Workbench installé, `SampleMod_ModdedScript` compilé et testé en jeu |
 | 2 | Audit de l'existant et correspondance avec les systèmes natifs | **fait** — ce dépôt |
-| 3 | Prototype minimal d'un module simple, testé de bout en bout | à faire |
-| 4 | Construction module par module, dans l'ordre des dépendances | à faire |
+| 3 | Prototype minimal d'un module simple, testé de bout en bout | **fait** — `kill_logger` (morts, dégâts, positions, véhicules, connexions, journal structuré) |
+| 4 | Construction module par module, dans l'ordre des dépendances | **en cours** — `score_board` construit et validé en jeu (score par faction + déclenchement par un vrai objectif du Scenario Framework) ; `infantry_loadouts` abandonné, l'OFCRA ne l'utilise plus ; reste `warm_up` |
 | 5 | Assemblage dans un `GameMode` et mission-modèle réutilisable | à faire |
 | 6 | Test en conditions réelles avec des membres de l'OFCRA | à faire |
 | 7 | Documentation de chaque composant pour permettre la contribution | à faire |
 
-Une remarque sur l'ordre : la **réplication** (`RplProp` / `BumpMe` / `RplRpc`) n'a aucun équivalent
-en SQF et conditionne la façon d'écrire chaque composant multijoueur. Les Modding Boot Camps #4
-(UI/HUD) et #5–6 (Replication) sont à voir avant l'étape 3, pas pendant l'étape 4.
+Le détail de ce qui a été validé en pratique (noms de classes/méthodes confirmés par compilation,
+procédure World Editor, historique des corrections) est dans les récapitulatifs
+[`kill_logger`](docs/OMTK_KillLogger_Reforger_Recap.md) et
+[`score_board`](docs/OMTK_ScoreBoard_Reforger_Recap.md), section par section.
+
+Une remarque sur l'ordre, toujours valable : la **réplication** (`RplProp` / `BumpMe` / `RplRpc`)
+n'a aucun équivalent en SQF et conditionne la façon d'écrire chaque composant multijoueur — c'est
+d'ailleurs ce qui explique une partie des détours rencontrés en construisant `score_board`
+(abonnements dupliqués à un événement statique, voir le récapitulatif correspondant).
 
 ---
 
