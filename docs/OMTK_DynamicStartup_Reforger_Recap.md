@@ -6,7 +6,7 @@
 
 ## 1. Contexte
 
-Le module `dynamic_startup` d'OMTK (Arma 3, SQF) gère les marqueurs de carte et les points de spawn générés dynamiquement au lancement d'une mission. Sur Reforger, ce rôle n'est pas rempli par un module custom, mais par un système natif complet dédié : le **Scenario Framework**, couplé au **système de tâches** (`SCR_TaskSystem`).
+Le module `dynamic_startup` d'OMTK (Arma 3, SQF) gère les marqueurs de carte et les points de spawn générés dynamiquement au lancement d'une mission. Sur Reforger, ce rôle n'est pas rempli par un module custom, mais par un système natif complet dédié : le **Scenario Framework**, couplé au **système de tâches** (classe `SCR_Task` — voir correction ci-dessous).
 
 ---
 
@@ -35,7 +35,9 @@ Une Area peut définir **plusieurs types de tâches possibles**, dont seul un so
 
 ---
 
-## 4. Le système de tâches (`SCR_TaskSystem`) — équivalent direct des objectifs OMTK
+## 4. Le système de tâches (`SCR_Task`) — équivalent direct des objectifs OMTK
+
+> **Correction** : ce document employait initialement `SCR_TaskSystem` comme nom de classe. Confirmé par compilation et test en jeu (voir récap [`score_board`](OMTK_ScoreBoard_Reforger_Recap.md), §3), la vraie classe qui porte les propriétés et méthodes décrites ci-dessous est **`SCR_Task`**. `SCR_TaskSystem` existe bien côté moteur, mais son rôle est différent : c'est lui qui gère l'écriture/l'enregistrement des tâches (`RegisterTask`, `UnregisterTask`), jamais à manipuler directement — toute lecture passe par les getters de `SCR_Task` (`GetOwnerFactionKeys()`, `GetTaskID()`, `GetTaskState()`...).
 
 - Fonctionne en tandem avec le Scenario Framework, mais peut aussi être utilisé indépendamment.
 - **S'enregistre automatiquement** : poser un prefab de tâche dans le monde suffit, pas d'initialisation manuelle à écrire.
@@ -65,7 +67,7 @@ Le Workbench reste disponible en parallèle pour une construction plus poussée 
 
 ## 6. Ce que ça implique pour notre portage
 
-`dynamic_startup` ne serait plus un composant de script autonome générant des marqueurs par code, mais une **combinaison de prefabs Scenario Framework** (Area/Layer/Slot) posés dans le World Editor, associés à des tâches enregistrées dans `SCR_TaskSystem`. Le lien avec les autres modules déjà documentés :
+`dynamic_startup` ne serait plus un composant de script autonome générant des marqueurs par code, mais une **combinaison de prefabs Scenario Framework** (Area/Layer/Slot) posés dans le World Editor, associés à des tâches (`SCR_Task`) enregistrées via `SCR_TaskSystem`. Le lien avec les autres modules déjà documentés :
 - les **Slots de spawn** utilisent les mêmes prefabs `SpawnPoint_*.et` que ceux vus dans le récap [`infantry_loadouts`](OMTK_Loadouts_Reforger_Recap.md) ;
 - la **faction propriétaire** d'une tâche s'appuie sur les mêmes clés de faction que `SCR_FactionManager` ;
 - le **résultat des tâches** (complétées/échouées) alimenterait le score répliqué via `[RplProp]`, comme documenté dans le récap [`score_board`](OMTK_ScoreBoard_Reforger_Recap.md) ;
@@ -85,6 +87,7 @@ Encore une fois : moins de script à écrire, plus de structure déclarative (pr
 | Mode Game Master | `community.bistudio.com/wiki/Arma_Reforger:Game_Master` |
 | Changements majeurs 1.1.0 (IA/Waypoints) | `community.bistudio.com/wiki/Arma_Reforger:Scenario_Framework_Update_Plugin` |
 | Wiki d'exemples (Workshop) | `reforger.armaplatform.com/workshop/64F6CE0D8811D211-ScenarioFrameworkWiki/scenarios` |
+| Explorateur de code source du jeu | `arexplorer.zeroy.com` — utile pour vérifier un nom de classe/méthode avant de coder ; voir la correction `SCR_Task` vs `SCR_TaskSystem` ci-dessus, découverte grâce à lui |
 
 ---
 
@@ -92,7 +95,7 @@ Encore une fois : moins de script à écrire, plus de structure déclarative (pr
 
 - Construire une première Area/Layer/Slot minimale avec un unique point de spawn, avant d'ajouter la logique de tâche.
 - Tester la randomisation (Debug Areas vs Core Areas) sur un scénario à plusieurs objectifs possibles.
-- Vérifier comment le résultat d'une tâche se propage concrètement vers le score (pont entre `SCR_TaskSystem` et notre `[RplProp]` de score).
+- ~~Vérifier comment le résultat d'une tâche se propage concrètement vers le score~~ — **fait**, voir récap [`score_board`](OMTK_ScoreBoard_Reforger_Recap.md), §3 : abonnement à `SCR_Task.GetOnTaskStateChanged()`, testé en jeu.
 
 ---
 
