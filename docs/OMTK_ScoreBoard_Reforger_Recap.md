@@ -11,73 +11,203 @@ Le module `score_board` d'OMTK (Arma 3, SQF) gère aujourd'hui :
 - le calcul du score en temps réel,
 - l'affichage du scoreboard en fin de mission (drapeaux BLUEFOR/REDFOR personnalisables).
 
-Sur Arma Reforger, il n'existe pas de "module" équivalent à copier : la logique doit s'appuyer sur des systèmes natifs du moteur Enfusion (scoring, réplication, UI, écran de fin), **modifiés** plutôt que réécrits de zéro.
+Sur Arma Reforger, il n'existe pas de "module" équivalent à copier : la logique s'appuie sur des systèmes natifs du moteur Enfusion (scoring, tâches, réplication, UI, écran de fin), **modifiés** plutôt que réécrits de zéro.
+
+**État d'avancement** : les sections 2 et 3 sont **confirmées en pratique** — code compilé et testé en jeu dans le Workbench (version 1.7.0.54). Les sections 4 et 5 (HUD, écran de fin) restent des hypothèses non testées.
 
 ---
 
-## 2. Stratégie retenue : modder l'existant, pas réinventer
+## 2. Score par joueur (natif) et score par faction (notre ajout) — CONFIRMÉ EN PRATIQUE
 
-Plutôt qu'un composant `OMTK_ScoreBoardComponent.c` entièrement custom, la bonne approche est de **modder** le système natif `SCR_ScoringSystemComponent` / `SCR_BaseScoringSystemComponent` via les mots-clés Enforce Script :
+### 2.1 Le natif : score par joueur
 
-- `modded` — modifie une classe existante sans toucher au fichier original.
-- `override` — remplace le comportement d'une méthode précise (ex. `CalculateScore`).
-- `super` — appelle le code d'origine de la méthode remplacée (pour *ajouter* un comportement plutôt que le remplacer entièrement).
+Reforger a déjà un système de score, mais il compte **par joueur**, pas par camp. La bonne classe à modder, confirmée par recherche de symbole dans le Script Editor puis compilation réussie, est :
 
-**Convention de nommage** : remplacer le préfixe `SCR_` par un tag propre au mod (ex. `OMTK_ScoringSystemComponent.c`) pour éviter les conflits avec d'autres mods.
-
-**Référence** : `SampleMod_ModdedScript` (dépôt officiel `BohemiaInteractive/Arma-Reforger-Samples`) — exemple concret : changer les multiplicateurs de score pour la mort/suicide, et jouer un son au suicide.
-
----
-
-## 3. Synchronisation du score en temps réel (réplication)
-
-Le calcul du score se fait uniquement **côté serveur** (l'autorité). Rien n'est synchronisé automatiquement — il faut le déclarer explicitement.
-
-**Mécanisme** :
-```
-Serveur : AddSuicide() (code modded) → variable [RplProp] → Replication.BumpMe()
-   ↓ (diffusion automatique par le moteur, aucun code réseau à écrire)
-Client  : callback onRplName déclenché → widget HUD mis à jour
+```cpp
+modded class SCR_BaseScoringSystemComponent
+{
+    override void AddKill(int playerId, int count = 1)
+    {
+        super.AddKill(playerId, count);
+        // ...
+    }
+}
 ```
 
-**Concepts clés** :
-- **Autorité** : la version de référence d'une entité, toujours sur le serveur.
-- **Proxy** : copie locale côté client, reçoit les mises à jour mais ne peut rien envoyer.
-- **Owner** : un client avec des droits élevés sur une entité précise (peut faire des `RpcAsk_` vers l'autorité).
-- `[RplProp(onRplName: "MaMethode", condition: RplCondition.X)]` — décore une variable pour la synchroniser automatiquement.
-- `RplRpc` — pour déclencher une **action** ponctuelle (ex. notification "Objectif capturé !"), avec la convention `RpcAsk_` (client → serveur) / `RpcDo_` (serveur → client).
-- Conditions utiles : `RplCondition.NoOwner` (tout le monde sauf le propriétaire), `RplCondition.OwnerOnly` (uniquement le propriétaire) — pour un scoreboard **global**, ne pas utiliser `OwnerOnly`.
+Deux corrections par rapport à nos hypothèses de départ :
+- La classe à modder est **`SCR_BaseScoringSystemComponent`**, pas `SCR_ScoringSystemComponent`. Cette dernière existe aussi, mais elle **hérite** de la première et appelle sa version d'`AddKill` en interne (`SCR_ScoringSystemComponent.AddKill(instigator.GetInstigatorPlayerID())`, vu dans le vrai code source du jeu).
+- La signature réelle est `AddKill(int playerId, int count = 1)` — deux paramètres, le second avec valeur par défaut. Notre première tentative avec un troisième paramètre `enemyId` ne compilait pas ("Overloading event ... is not allowed") : Enforce Script refuse une surcharge dont la signature ne correspond pas exactement à la méthode d'origine, il exige une vraie redéfinition.
+
+### 2.2 Notre ajout : score par faction
+
+OFCRA note un **camp** (BLUEFOR/REDFOR/GREENFOR), pas un joueur individuel. On ajoute donc, dans la même classe moddée, un suivi indépendant :
+
+```cpp
+protected ref map<string, int> m_mOMTK_FactionScores = new map<string, int>();
+
+void AddFactionPoints(string factionKey, int points, string objectiveId = "")
+{
+    int current = 0;
+    if (m_mOMTK_FactionScores.Contains(factionKey))
+        current = m_mOMTK_FactionScores.Get(factionKey);
+
+    int newScore = current + points;
+    m_mOMTK_FactionScores.Set(factionKey, newScore);
+    // + journalisation structurée (voir récap kill_logger)
+}
+
+int GetFactionScore(string factionKey) { /* ... */ }
+```
+
+**Testé en jeu** : deux kills successifs produisent `USSR = 1` puis `USSR = 2`, le score persiste correctement entre les événements. La faction du tueur est lue via `FactionAffiliationComponent.GetAffiliatedFaction().GetFactionKey()` sur son entité contrôlée — **confirmé**, ce getter existe et fonctionne tel quel.
 
 ---
 
-## 4. Affichage en direct (HUD)
+## 3. Déclenchement par un vrai objectif (Scenario Framework) — CONFIRMÉ EN PRATIQUE
+
+C'est la partie qui a demandé le plus de corrections successives. Ce qui suit est la version finale, validée par un objectif réel posé dans le World Editor et complété en jeu.
+
+### 3.1 La vraie classe : `SCR_Task`, pas `SCR_TaskSystem` ni `SCR_BaseTask`
+
+Le fichier source complet `SCR_Task.c` a été obtenu et lu intégralement. Faits confirmés :
+
+- La classe est **`SCR_Task`** (`GenericEntity`). Ni `SCR_TaskSystem` ni `SCR_BaseTask` ne sont les bonnes classes à cibler pour ce hook — ce sont des noms qu'on a essayés en premier et qui ne correspondaient pas (voir §3.3, historique des erreurs).
+- L'état de succès est **`SCR_ETaskState.COMPLETED`**, pas `FINISHED` :
+  ```cpp
+  enum SCR_ETaskState { CREATED, ASSIGNED, PROGRESSED, COMPLETED, FAILED, CANCELLED }
+  ```
+- Une tâche a un **tableau** de factions propriétaires, pas une seule :
+  ```cpp
+  array<string> GetOwnerFactionKeys()  // ex. ["BLUEFOR", "REDFOR"] pour un objectif contesté
+  ```
+  Ça correspond exactement au format `"BLUEFOR+REDFOR"` d'`OMTK_SB_LIST_OBJECTIFS` — nativement supporté, sans bricolage.
+- `GetTaskID()` renvoie une **`string`**, pas un entier.
+- Le point d'abonnement propre est un `ScriptInvoker` **statique** exposé par un getter :
+  ```cpp
+  static SCR_TaskStateInvoker GetOnTaskStateChanged();
+  // signature du callback : void MaMethode(SCR_Task task, SCR_ETaskState newState)
+  ```
+
+**Règle du système de tâches** (documentation officielle) : on ne lit les données d'une tâche que via les getters publics de `SCR_Task` ; toute écriture doit passer par `SCR_TaskSystem`, jamais en manipulant `SCR_Task`/`SCR_TaskData` directement. Notre code ne fait que lire (`GetOwnerFactionKeys`, `GetTaskID`) — conforme à cette règle.
+
+### 3.2 Le code final
+
+```cpp
+modded class SCR_BaseGameModeComponent
+{
+    // Le ScriptInvoker SCR_Task.s_OnTaskStateChanged est STATIQUE — partagé par
+    // toute la classe. Sans protection, chaque rechargement de partie dans le
+    // Workbench ajoute un nouvel abonnement sans retirer les précédents.
+    protected static bool s_bOMTK_TaskListenerRegistered = false;
+
+    override void OnGameModeStart()
+    {
+        super.OnGameModeStart();
+        if (!Replication.IsServer())
+            return;
+
+        if (s_bOMTK_TaskListenerRegistered)
+            return; // déjà abonné, ne pas dupliquer
+
+        SCR_Task.GetOnTaskStateChanged().Insert(OMTK_OnTaskStateChanged);
+        s_bOMTK_TaskListenerRegistered = true;
+    }
+
+    protected void OMTK_OnTaskStateChanged(SCR_Task task, SCR_ETaskState newState)
+    {
+        if (!task || newState != SCR_ETaskState.COMPLETED)
+            return;
+
+        array<string> ownerFactions = task.GetOwnerFactionKeys();
+        if (!ownerFactions || ownerFactions.IsEmpty())
+            return;
+
+        string taskId = task.GetTaskID();
+        SCR_BaseScoringSystemComponent scoring = SCR_BaseScoringSystemComponent.Cast(GetGame().GetGameMode().FindComponent(SCR_BaseScoringSystemComponent));
+        if (!scoring)
+            return;
+
+        foreach (string factionKey : ownerFactions)
+            scoring.AddFactionPoints(factionKey, 1, taskId); // valeur de test — à remplacer par le vrai barème
+    }
+}
+```
+
+### 3.3 Historique des corrections (pour éviter de refaire les mêmes détours)
+
+Trois versions ont échoué avant celle-ci — utile à savoir si on retombe sur un cas similaire ailleurs :
+
+1. **`modded class SCR_Task` avec `override OnTaskStateChanged(SCR_TaskState state)`** — erreur `"Overloading event ... is not allowed"`. `SCR_Task` n'a pas cette méthode sous ce nom/cette forme.
+2. **`SCR_BaseTaskManager.s_OnTaskFinished`** — trouvé dans un fichier source, mais ce fichier s'est révélé **entièrement commenté** dans la vraie version du jeu (chaque ligne préfixée `//`), donc classe inexistante à la compilation. Ne pas se fier à un fichier source sans vérifier qu'il n'est pas mort/remplacé.
+3. **`modded class SCR_GameModeSFManager` avec `override OnTaskUpdate(SCR_BaseTask task, ...)`** — basé sur un usage réel (`SCR_GameModeSFManager.c`, non commenté), mais `SCR_BaseTask` n'existe pas non plus comme classe indépendante. Non testé jusqu'au bout car la version 4 (ci-dessus), obtenue en lisant le fichier `SCR_Task.c` complet, s'est avérée à la fois plus simple et correcte du premier coup.
+
+**Leçon générale** : les résultats de recherche web/doc peuvent provenir de versions différentes du jeu ou de code désactivé. Le fichier source complet, lu en entier, reste la seule source vraiment fiable — mieux qu'un extrait ou qu'un nom deviné par analogie.
+
+### 3.4 Mise en place côté World Editor — CONFIRMÉ EN PRATIQUE
+
+Procédure suivie avec succès, à partir du tutoriel officiel *Scenario Framework Setup Tutorial* :
+
+1. **Préalable, une fois par monde** : `Plugins > Game Mode Setup`, pointer *Template* vers `ScenarioFramework.conf`, scanner le monde, puis **"Create entities"** pour générer ce qui manque (`SCR_AIWorld`, gestionnaires de faction/loadout, et un GameMode nommé `GameModeSF` avec `SCR_GameModeSFManager` et une trentaine d'autres composants).
+2. Créer une **`Area`**, contenant un **`Layer`** (marqué actif), contenant un **`LayerTaskKill`** (ou `LayerTaskMove`/`LayerTaskDestroy`/`LayerTaskDefend` selon le type d'objectif — voir récap `dynamic_startup`).
+3. Dans `LayerTaskKill`, créer un **`SlotTask`** (composant `SCR_ScenarioFrameworkSlotTask`) — **un seul prefab de Slot générique**, pas une variante par type comme on le supposait au départ. C'est dans ses attributs *Asset* qu'on règle :
+   - **`Object To Spawn`** — le prefab de la cible (ex. un personnage IA),
+   - **`Faction Key`** — la faction propriétaire de la tâche.
+4. **Depuis la 1.6, aucun branchement manuel n'est nécessaire** : poser le prefab dans le monde suffit, le système de tâches l'enregistre automatiquement.
+5. Le Scenario Framework habille lui-même l'objectif généré (nom, description) sans code supplémentaire — observé en jeu : *"Eliminate target — Neutralize the High Value Target... Target: Machine-Gunner Assistant"*.
+
+**Piège rencontré et résolu** : l'assistant *Game Mode Setup* a créé un **second** GameMode (`GameModeSF`) séparé de celui qui portait déjà nos composants OMTK (`GameMode_Editor_Full1`). Un seul GameMode est actif à la fois — il a fallu regrouper tous les composants (natifs et OMTK) sur `GameModeSF` puis supprimer l'ancien. `SCR_BaseScoringSystemComponent` s'est révélé **déjà présent nativement** sur `GameModeSF` (composant standard du GameMode) : notre `modded class` s'y applique automatiquement, sans rien ajouter à la main pour lui — seul `OMTK_KillLoggerComponent` (composant entièrement nouveau, pas une modification) a dû être ajouté explicitement.
+
+### 3.5 Test de bout en bout réussi
+
+Séquence observée dans la console, après correction du bug d'abonnement dupliqué (§3.2) :
+
+```
+[OMTK] Abonnement à SCR_Task.GetOnTaskStateChanged() effectué.
+[OMTK] Abonnement à s_OnTaskStateChanged déjà actif, ignoré.   (répété aux rechargements suivants)
+...
+[OMTK] TEST tâche complétée — faction=USSR id=LayerTaskKill1
+[OMTK] SCORE FACTION — USSR = 2 (+1, objectif=LayerTaskKill1)
+```
+
+Une seule ligne de complétion pour un seul kill réel de la cible ciblée par le Slot — confirmé après le correctif, avant lequel un seul événement déclenchait le callback jusqu'à 25 fois en boucle (un abonnement dupliqué à chaque rechargement du Workbench, le `ScriptInvoker` étant statique donc partagé, jamais réinitialisé).
+
+---
+
+## 4. Affichage en direct (HUD) — NON TESTÉ, hypothèse de départ
 
 - L'UI Reforger est faite de **Widgets** organisés en hiérarchies dans des fichiers `.layout`.
-- Un **Script Component** (`ScriptedWidgetComponent`) attaché au widget du scoreboard lit la valeur synchronisée et met à jour l'affichage via `Widget.FindAnyWidget()`.
-- **Bonne pratique** : un seul composant "source de vérité" à la racine du prefab HUD — ne jamais modifier un widget depuis l'extérieur de son propre prefab.
-- **HUD Slotting** : le système redistribue automatiquement les éléments HUD compatibles vers les menus (carte, inventaire) ou les cache — aucun code supplémentaire à écrire pour ces cas.
+- Un **Script Component** (`ScriptedWidgetComponent`) attaché au widget du scoreboard lirait la valeur de `GetFactionScore()` et mettrait à jour l'affichage via `Widget.FindAnyWidget()`.
+- **Bonne pratique** : un seul composant "source de vérité" à la racine du prefab HUD.
+- **HUD Slotting** : le système redistribue automatiquement les éléments HUD compatibles vers les menus (carte, inventaire) ou les cache.
+
+Rien de cette section n'a encore été compilé ni testé — à traiter comme la suite logique une fois le score par faction jugé fiable.
 
 ---
 
-## 5. Écran de fin de mission (l'équivalent du scoreboard final SQF)
+## 5. Écran de fin de mission — NON TESTÉ, hypothèse de départ
 
-- Le **End Screen** ("Game Over screen") se configure dans l'éditeur ; pour du full custom, hériter de **`SCR_BaseGameOverScreenInfo`** et surcharger **`SCR_GameOverScreenContentUIComponent`**.
-- Le layout custom (nos drapeaux BLUEFOR/REDFOR, notre mise en page) se branche via la variable `Game Over Content Layout`.
-- Point d'attention : gérer la compatibilité **Game Master**, où plusieurs factions gagnantes sont possibles (contrairement à notre BLUEFOR/REDFOR strict actuel).
-- **`SCR_GameModeEndData`** : structure sérialisable **déjà répliquée nativement** à tous les clients (faction gagnante, joueur gagnant...). Pas besoin de réinventer la réplication du résultat final — juste la remplir avec nos données OFCRA.
-
-Les popups intermédiaires (ex. un message "Domination bonus" comme dans notre `OMTK_SB_LIST_OBJECTIFS` actuel) peuvent utiliser le système générique de **Configurable Dialog** (`SCR_ConfigurableDialogUi`, config `SCR_ConfigurableDialogUiPresets`), qui évite d'écrire un layout complet à la main pour chaque petit message.
+- Le **End Screen** se configure dans l'éditeur ; pour du full custom, hériter de `SCR_BaseGameOverScreenInfo` et surcharger `SCR_GameOverScreenContentUIComponent`.
+- **`SCR_GameModeEndData`** : structure sérialisable déjà répliquée nativement (faction gagnante, joueur gagnant...).
+- Point d'attention non résolu : compatibilité **Game Master**, où plusieurs factions gagnantes sont possibles.
+- Les popups intermédiaires pourraient utiliser le système générique de **Configurable Dialog** (`SCR_ConfigurableDialogUi`).
 
 ---
 
-## 6. Chaîne complète
+## 6. Chaîne complète (mise à jour)
 
 ```
 Pendant la partie :
-  AddSuicide() (modded) → [RplProp] score → BumpMe()
-      → onRplName (client) → widget HUD mis à jour en direct
+  Kill détecté (kill_logger, OnPlayerKilled)
+      → scoring.AddKill(killerId)        [natif, par joueur]
+      → scoring.AddFactionPoints(...)    [notre ajout, par faction]   ← CONFIRMÉ
 
-Fin de partie :
+  Tâche du Scenario Framework complétée (SCR_ETaskState.COMPLETED)
+      → OMTK_OnTaskStateChanged(task, state)
+      → scoring.AddFactionPoints(factionKey, points, taskId) pour chaque faction propriétaire  ← CONFIRMÉ
+
+  (à faire) → widget HUD mis à jour via GetFactionScore()
+
+Fin de partie (hypothèse, non testée) :
   Score final → SCR_GameModeEndData (répliqué nativement)
       → SCR_GameOverScreenContentUIComponent (notre logique custom)
       → notre layout final (drapeaux, mise en page OFCRA)
@@ -91,23 +221,30 @@ Fin de partie :
 |---|---|
 | Réplication (concepts) | `community.bistudio.com/wiki/Arma_Reforger:Multiplayer_Scripting` |
 | Modding par override/super | `community.bistudio.com/wiki/Arma_Reforger:Scripting_Modding` |
-| Sample de code réel | `github.com/BohemiaInteractive/Arma-Reforger-Samples` → `SampleMod_ModdedScript` |
-| UI / HUD (concepts) | Modding Boot Camp #4 — `reforger.armaplatform.com/news/modding-boot-camp-4-user-interface-and-hud` |
+| Sample de code réel | `github.com/BohemiaInteractive/Arma-Reforger-Samples` -> `SampleMod_ModdedScript` |
+| Explorateur de code source du jeu | `arexplorer.zeroy.com` -- utile pour vérifier un nom de classe/méthode avant de coder, mais certains fichiers indexés sont commentés/désactivés dans la vraie version : vérifier par compilation |
+| Scenario Framework (concepts) | `community.bistudio.com/wiki/Arma_Reforger:Scenario_Framework` |
+| Scenario Framework (tutoriel pas à pas) | `community.bistudio.com/wiki/Arma_Reforger:Scenario_Framework_Setup_Tutorial` |
+| Task System Usage (règles lecture/écriture) | `community.bistudio.com/wiki/Arma_Reforger:Task_System_Usage` |
+| Changements du système de tâches en 1.6 | `reforger.armaplatform.com/news/modding-update-october-7-2025` |
+| UI / HUD (concepts) | Modding Boot Camp #4 -- `reforger.armaplatform.com/news/modding-boot-camp-4-user-interface-and-hud` |
 | Dialogues génériques | `community.bistudio.com/wiki/Arma_Reforger:Dialog_Configuration_Tutorial` |
 | Écran de fin de mission | `community.bistudio.com/wiki/Arma_Reforger:End_Screen_Creation` |
 | Setup général de game mode | `community.bistudio.com/wiki/Arma_Reforger:General_Game_Mode_Setup` |
 
 ---
 
-## 8. Ce qui reste à valider en pratique (Workbench requis)
+## 8. Ce qui reste à faire
 
-- Compiler et tester réellement un `modded SCR_ScoringSystemComponent` (les noms exacts de méthodes/propriétés peuvent avoir évolué depuis la doc consultée).
-- Vérifier le comportement exact de `RplCondition` sur un scoreboard visible par tous les joueurs.
-- Construire un premier prototype minimal : score qui s'incrémente et se synchronise, avant d'ajouter l'affichage HUD puis l'écran de fin.
+**Confirmé et stable** : score par joueur (natif), score par faction (notre ajout), déclenchement par un objectif réel du Scenario Framework, protection contre les abonnements dupliqués.
 
----
-
-*Document généré à partir des recherches menées en session — à vérifier et corriger contre le comportement réel du Workbench (voir §8).*
+**Reste à faire, dans un ordre suggéré** :
+- Remplacer la valeur de points fixe (`1`) par le vrai barème OFCRA (`OMTK_SB_LIST_OBJECTIFS` : valeurs différenciées par objectif, communes vs par camp).
+- Retirer le déclenchement de test « chaque kill donne 1 point » dans `AddKill` (utile pour valider la tuyauterie, pas la vraie règle).
+- Implémenter le **verrouillage horodaté par objectif** (voir §9) -- aucun équivalent natif trouvé à ce jour.
+- Câbler l'affichage HUD (§4) -- non testé.
+- Câbler l'écran de fin de mission (§5) -- non testé, y compris la compatibilité Game Master multi-factions gagnantes.
+- Vérifier le comportement de `RplCondition` si un jour la réplication custom devient nécessaire au-delà de ce que `AddKill`/le score natif gèrent déjà.
 
 ---
 
@@ -116,9 +253,9 @@ Fin de partie :
 Le barème d'une mission OFCRA est plus riche que le simple couple objectif/point. Sur une mission type de 90 minutes, on trouve :
 
 **Trois familles d'objectifs**
-- **Communs aux deux camps** — typiquement le contrôle de zones (une zone d'éoliennes, une usine, une ville), chacune valant 2 à 3 points.
-- **Propres au BLUFOR** — défendre des installations, empêcher une action adverse.
-- **Propres au REDFOR** — le miroir : détruire ces mêmes installations, réussir l'action.
+- **Communs aux deux camps** -- typiquement le contrôle de zones (une zone d'éoliennes, une usine, une ville), chacune valant 2 à 3 points.
+- **Propres au BLUFOR** -- défendre des installations, empêcher une action adverse.
+- **Propres au REDFOR** -- le miroir : détruire ces mêmes installations, réussir l'action.
 
 **Des points différenciés** : chaque objectif porte sa propre valeur, y compris à l'intérieur d'un lot (« 3 installations à défendre, 1 point chacune »).
 
@@ -126,8 +263,12 @@ Le barème d'une mission OFCRA est plus riche que le simple couple objectif/poin
 
 **La survie comme objectif** : « le chef de camp a survécu » vaut des points, pour chaque camp.
 
-**Ce que ça implique pour l'implémentation :**
+**Ce que ça implique pour l'implémentation, mis à jour avec les vrais noms confirmés (§3) :**
 
-- La notion de **faction propriétaire** d'une tâche (`SCR_TaskSystem`, voir récap [`dynamic_startup`](OMTK_DynamicStartup_Reforger_Recap.md), §4) couvre nativement la distinction commun / BLUFOR / REDFOR.
-- Le **verrouillage horodaté par objectif** n'a en revanche pas d'équivalent évident : c'est probablement la part la plus spécifique à écrire, sous forme d'un état « figé » atteint à un instant configuré par objectif, et non à la fin de partie.
-- Le score final doit distinguer **objectif rempli** et **objectif verrouillé sur un échec**, les deux étant des états terminaux différents en cours de partie.
+- La notion de **faction(s) propriétaire(s)** d'une tâche (`SCR_Task.GetOwnerFactionKeys()`, tableau de chaînes) couvre nativement la distinction commun / BLUFOR / REDFOR -- y compris le cas d'un objectif appartenant aux deux camps à la fois.
+- Le **verrouillage horodaté par objectif** n'a toujours pas d'équivalent natif identifié : c'est la part la plus spécifique à écrire, sous forme d'un état « figé » atteint à un instant configuré par objectif (probablement en comparant le temps de mission -- voir récap `kill_logger` -- à un seuil défini par tâche), et non à la fin de partie.
+- Le score final doit distinguer **objectif rempli** (`SCR_ETaskState.COMPLETED`) et **objectif verrouillé sur un échec** (`FAILED` ou verrouillage manuel), deux états terminaux différents qu'il faudra traiter séparément dans `OMTK_OnTaskStateChanged`.
+
+---
+
+*Document mis à jour après tests réels en Workbench (version 1.7.0.54) -- §2 et §3 confirmés en pratique, §4 et §5 restent des hypothèses non testées (voir §8).*
