@@ -24,7 +24,8 @@ Le module `infantry_loadouts` d'OMTK (Arma 3, SQF) équipe automatiquement les u
 |---|---|---|
 | `SCR_FactionManager` | Gère l'ensemble des factions du jeu | `bluefor_classes.sqf` / `redfor_classes.sqf` |
 | `SCR_LoadoutManager` | Instance unique, fournit les loadouts disponibles par indices | Sélection de classe dans `infantry_loadouts` |
-| `SCR_RespawnSystemComponent` | Attaché au GameMode ; gère faction/loadout/spawn demandés par chaque joueur. **Seule l'insertion initiale nous concerne** — l'OFCRA joue sans respawn | `infantry_loadouts` + partie de `dynamic_startup` || `SCR_RespawnComponent` | Attaché au contrôleur du joueur (visible uniquement par son propriétaire) | — (nouveau concept, lié à owner/proxy) |
+| `SCR_RespawnSystemComponent` | Attaché au GameMode ; gère faction/loadout/spawn demandés par chaque joueur. **Seule l'insertion initiale nous concerne** — l'OFCRA joue sans respawn | `infantry_loadouts` + partie de `dynamic_startup` |
+| `SCR_RespawnComponent` | Attaché au contrôleur du joueur (visible uniquement par son propriétaire) | — (nouveau concept, lié à owner/proxy) |
 | `FactionAffiliationComponent` | Faction d'appartenance d'une unité (simple chaîne de caractères) | `setFaction` / classes de camp |
 | `BaseLoadoutManagerComponent` | Définit la tenue (casque, veste, pantalon, bottes, gilet, sac à dos — 6 emplacements fixes) | Équipement vestimentaire des classes |
 | `SCR_InventoryStorageManagerComponent` | Objets préassignés et leur emplacement de stockage | Ajout d'items via script |
@@ -74,6 +75,7 @@ Processus type (d'après le tutoriel *Faction Creation*) :
 | RHS: Status Quo — documentation | `docs.rhsmods.org/rhs-status-quo-user-documentation/arma-reforger/rhs-status-quo` |
 | RHS: Status Quo — EULA | `docs.rhsmods.org/rhs-status-quo-user-documentation/arma-reforger/rhs-status-quo/eula` |
 | RHS: Status Quo — Workshop | `reforger.armaplatform.com/workshop/595F2BF2F44836FB-RHS-StatusQuo` |
+| Explorateur de code source du jeu | `arexplorer.zeroy.com` — utile pour vérifier un nom de classe/méthode avant de coder |
 
 ---
 
