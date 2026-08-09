@@ -32,10 +32,14 @@ mode de jeu persistant. Les récapitulatifs signalent au cas par cas ce que ça 
 
 ### OMTK aujourd'hui
 
+![Synoptique OMTK sur Arma 3](docs/img/synoptique-arma3.svg)
+
 Un point d'entrée unique (`init.sqf` / `description.ext`), deux dépendances externes, et onze modules
 dont presque tous sont du script maintenu par l'OFCRA.
 
 ### Ce que ça deviendrait sur Reforger
+
+![Synoptique OMTK sur Reforger](docs/img/synoptique-reforger.svg)
 
 Le code couleur est le même sur les deux schémas : vert = code maintenu par l'OFCRA, gris = fourni
 par le moteur ou un tiers. La comparaison est le résultat principal de cette analyse — seuls **trois
