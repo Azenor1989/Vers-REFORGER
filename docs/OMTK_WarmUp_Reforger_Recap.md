@@ -14,9 +14,18 @@ Fonctionnalités réelles du module (source : `README.md` et `main.sqf`/`library
 - véhicules avec moteur bloqué (gel du contact, pas retrait du carburant dans la version actuelle du code, malgré ce que dit le README) ;
 - zone de restriction autour du point d'apparition, avec téléportation après 5 s hors zone ;
 - **les officiers des deux camps** (classes définies dans `OMTK_WU_CHIEF_CLASSES`) peuvent déclarer leur camp prêt ; une fois **les deux** prêts, le temps restant est ramené à ~10 secondes (`omtk_wu_fn_launch_game`, calcul exact : `0.002777 h × 3600 ≈ 10 s`) ;
-- le raccourci ne peut jamais **rallonger** le temps restant — l'appel est ignoré si le minuteur est déjà sous le seuil.
+- le raccourci ne peut jamais **rallonger** le temps restant — l'appel est ignoré si le minuteur est déjà sous le seuil ;
+- **les IA jouables sont également gelées et immortelles pendant cette période**, en miroir des joueurs humains — voir §1bis, découvert dans le module `ia_manager`, jamais audité avant ce croisement.
 
 Sur Reforger, ce rôle correspond à l'état natif **`PREGAME`** de la machine à états du GameMode.
+
+---
+
+## 1bis. Complément découvert : le gel s'applique aussi aux IA jouables
+
+Le récapitulatif [`IA_skills`](OMTK_IASkills_Reforger_Recap.md), §9bis, documente un module distinct — `ia_manager` — qui gère notamment le paramètre `OMTK_MODULE_DISABLE_PLAYABLE_AI`. Quand il est actif, les **IA combattantes utilisées pour équilibrer les effectifs** sont gelées et rendues immortelles pendant le warm-up, exactement comme les joueurs humains décrits ci-dessus : `disableAI` sur les comportements de ciblage/mouvement/FSM, comportement `CARELESS`, dégâts désactivés. Un hook `HandleDisconnect` réapplique ce gel si le joueur qui contrôlait l'IA se déconnecte.
+
+**Ce que ça implique pour notre portage** : la logique de warm-up qu'on construit (§4) ne doit pas se limiter aux joueurs humains si l'OFCRA utilise encore des IA jouables. Le même minuteur (§4.2) devrait déclencher les deux gels en parallèle, pas seulement celui des joueurs.
 
 ---
 
@@ -54,6 +63,8 @@ Un paramètre, pas zéro — la première tentative sans paramètre échouait av
 
 La documentation officielle précise que `CanAdvanceState()` *"Does not apply to manual `StartGameMode()` call from the authority!"* — un lancement manuel par l'admin serveur contourne entièrement ce mécanisme. Rien à coder pour ce cas : c'est déjà natif.
 
+**Confirmé dans la pratique OMTK** : le récapitulatif [`ui` (panneau admin)](OMTK_UI_AdminPanel_Reforger_Recap.md) §3 montre que le bouton « End Warm-up » du panneau appelle en réalité **`omtk_wu_fn_launch_game`** — la même fonction que le vote des officiers, pas un mécanisme séparé. Sur Reforger, un seul chemin de code (§4) devrait donc suffire pour les deux déclencheurs (admin et officiers), la différence n'étant que la source de l'appel.
+
 ---
 
 ## 3. Options serveur complémentaires
@@ -85,7 +96,7 @@ Compilé et testé en jeu — voir §2.1.
 
 ### 4.2 Étape 2 — minuteur fixe (rédigée, pas encore testée en jeu)
 
-Remplace le résultat natif par une vraie comparaison de temps écoulé contre une durée configurable (`[Attribute]`), fidèle au paramètre `OMTK_MODULE_WARM_UP` d'origine — **pas** un nombre de joueurs. Un champ `m_fOMTK_ForcedRemainingSeconds` est prévu, non câblé, pour l'étape 3 (vote des officiers).
+Remplace le résultat natif par une vraie comparaison de temps écoulé contre une durée configurable (`[Attribute]`), fidèle au paramètre `OMTK_MODULE_WARM_UP` d'origine — **pas** un nombre de joueurs. Un champ `m_fOMTK_ForcedRemainingSeconds` est prévu, non câblé, pour l'étape 3 (vote des officiers). **À étendre pour geler les IA jouables en parallèle des joueurs humains** (voir §1bis) si ce cas est encore d'actualité pour l'OFCRA.
 
 ### 4.3 Brouillons soumis par Luis — analyse
 
@@ -116,6 +127,8 @@ Deux fichiers ont été rédigés en parallèle de l'étape 2 ci-dessus : `OMTK_
 | Sujet | Lien |
 |---|---|
 | Code source réel du module OMTK (Arma 3) | `github.com/ofcrav2/omtk/tree/master/omtk/warm_up` |
+| Code source réel du module `ia_manager` (Arma 3) | `github.com/ofcrav2/omtk/tree/master/omtk/ia_manager` |
+| Code source réel du panneau admin (Arma 3) | `github.com/ofcrav2/omtk/blob/master/omtk/ui/pauseScreenMenu.sqf` |
 | Setup général de game mode (états PREGAME/GAME/POSTGAME) | `community.bistudio.com/wiki/Arma_Reforger:General_Game_Mode_Setup` |
 | Paramètres de démarrage serveur (`-autoreload`, etc.) | `community.bistudio.com/wiki/Arma_Reforger:Startup_Parameters` |
 | Configuration serveur (`lobbyPlayerSync`) | `low.ms/knowledgebase/arma-reforger-server-configuration` |
@@ -130,6 +143,7 @@ Deux fichiers ont été rédigés en parallèle de l'étape 2 ci-dessus : `OMTK_
 - Trouver l'équivalent Reforger de l'ajout d'une action à des classes d'unité spécifiques (les officiers), et de la vérification de l'état courant du GameMode (pas seulement la présence d'un composant).
 - Tester le comportement de `-autoreload` sur un serveur de test.
 - Vérifier si la zone de restriction (téléportation après 5 s hors zone) et le gel des véhicules ont un équivalent natif ou doivent être réécrits.
+- Clarifier avec l'OFCRA si les IA jouables (§1bis) sont encore utilisées aujourd'hui, pour savoir si leur gel doit être porté.
 
 ---
 
