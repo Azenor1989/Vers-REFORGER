@@ -287,9 +287,37 @@ Pour une publique ordinaire, le plafond est presque indolore. Pour les grandes m
 
 ---
 
-## 10. Ce qui reste à valider en pratique (Workbench requis)
+## 10. OCAP sur Reforger : analyse du vrai dépôt (`github.com/OCAP2/OCAP`)
 
-- **OCAP existe-t-il sur Reforger**, ou est-il en cours de portage ? Si oui, son format d'entrée devient une contrainte à respecter plutôt qu'une décision à prendre.
+**Question tranchée : OCAP2 n'existe pas sur Reforger, et rien n'indique un portage en cours.** Le dépôt réel (architecture en trois sous-modules — `addon`, `extension`, `web`) confirme que le projet est strictement Arma 3 : dépendance à `CBA_A3`, addon en SQF, et surtout une **extension native en Go** dont le seul point d'entrée est `callExtension("ocap_recorder", ...)` — le mécanisme d'appel à une DLL/`.so` externe depuis SQF. **Ce mécanisme n'existe pas sous Enfusion.** Ce n'est pas un problème de traduction de code : la porte d'entrée elle-même a disparu.
+
+### 10.1 Bonne nouvelle : le morceau le plus dur n'a pas besoin d'être recréé
+
+L'extension native existait pour contourner une limite d'Arma 3 — SQF ne sait pas écrire dans une base de données. Reforger n'a pas cette limite de la même façon : `FileIO`, déjà confirmé en jeu (§2.3), suffit à écrire un journal structuré directement depuis Enforce Script. Le composant le plus complexe d'OCAP — near-2000 lignes de Go, gestion de files d'attente, écriture par lots, cache d'entités — **sort du problème plutôt que de devoir être porté**.
+
+### 10.2 Les cinq morceaux d'un OCAP dédié Reforger, par difficulté réelle
+
+| Morceau | État | Difficulté |
+|---|---|---|
+| **Enregistreur en jeu** | Déjà largement fait — c'est `kill_logger` (positions, kills, connexions, véhicules ≈ `:SOLDIER:STATE:`, `:EVENT:KILL:` d'OCAP) | Faible — à compléter, pas à démarrer |
+| **Transport** | Déjà résolu — `FileIO` en JSON Lines, confirmé en jeu | Résolu |
+| **Ingestion** (lire les fichiers, charger en base) | Nouveau, aucune ligne écrite | Modeste — un script serveur ordinaire, hors Enfusion |
+| **Interface web de replay** | Leaflet et le concept général sont réutilisables ; le code existant est câblé sur le schéma de données d'OCAP, à adapter | Réelle mais bornée |
+| **Tuiles de carte** (Arland, Everon...) | Aucun équivalent aux packs de tuiles Arma 3 téléchargeables | Travail de production cartographique, pas de code |
+
+### 10.3 Le vrai facteur de coût n'est pas technique
+
+Le README d'OCAP liste des années de finitions accumulées : tags personnalisés, recherche par date, fenêtres de focus (`:MISSION:FOCUS_START:`/`FOCUS_END:`), contrôles admin, événements personnalisés, filtres d'affichage. Reconstruire un tuyau qui fonctionne — capter, transporter, stocker, afficher un point sur une carte — se compte en semaines. Retrouver ce niveau de confort d'usage prend beaucoup plus longtemps, et ne devrait pas être anticipé avant d'avoir un vrai retour d'usage des membres de l'OFCRA sur une première version minimale.
+
+### 10.4 Un vocabulaire d'événements à reprendre, même si le transport change
+
+Indépendamment du mécanisme, la liste de commandes d'OCAP (`:SOLDIER:CREATE:`, `:EVENT:KILL:`, `:MARKER:CREATE:`, `:EVENT:SECTOR:`, `:EVENT:ENDMISSION:`...) est un bon modèle du **quoi enregistrer**, à mettre en regard du catalogue d'événements déjà esquissé en §4. Notamment : `:EVENT:SECTOR:` (capture/contestation) et `:EVENT:ENDMISSION:` avec camp gagnant confirment, depuis un projet totalement indépendant d'OMTK, les mêmes besoins qu'on documentait déjà côté `score_board`.
+
+---
+
+## 11. Ce qui reste à valider en pratique (Workbench requis)
+
+- ~~OCAP existe-t-il sur Reforger, ou est-il en cours de portage ?~~ — **tranché, voir §11.**
 - **Arme et distance** : ces champs ne semblent pas venir d'`InstigatorContextData`. À chercher du côté de l'événement de dégât ou du projectile.
 - Tester `FileIO.OpenFile`/`Close` dans un composant custom, hors du contexte `AI_DEBUG` où l'exemple a été trouvé.
 - Confirmer s'il existe une solution de persistance externe, ou si `FileIO` + traitement hors jeu est la seule voie.
