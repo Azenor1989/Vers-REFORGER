@@ -157,6 +157,34 @@ Procédure suivie avec succès, à partir du tutoriel officiel *Scenario Framewo
 
 **Piège rencontré et résolu** : l'assistant *Game Mode Setup* a créé un **second** GameMode (`GameModeSF`) séparé de celui qui portait déjà nos composants OMTK (`GameMode_Editor_Full1`). Un seul GameMode est actif à la fois — il a fallu regrouper tous les composants (natifs et OMTK) sur `GameModeSF` puis supprimer l'ancien. `SCR_BaseScoringSystemComponent` s'est révélé **déjà présent nativement** sur `GameModeSF` (composant standard du GameMode) : notre `modded class` s'y applique automatiquement, sans rien ajouter à la main pour lui — seul `OMTK_KillLoggerComponent` (composant entièrement nouveau, pas une modification) a dû être ajouté explicitement.
 
+### 3.4bis Divergence de conception à assumer — lu dans le vrai `library.sqf` d'OMTK
+
+Le vrai code source (`github.com/ofcrav2/omtk/blob/master/omtk/score_board/library.sqf`, jamais lu en entier avant ce croisement) révèle qu'**OMTK ne calcule pas le score en temps réel**. `omtk_sb_compute_scoreboard` s'exécute **une seule fois, à la fin de la mission**, et évalue à cet instant précis l'état de chaque objectif de la liste (`sb_o`) — zones actuellement occupées, survivants actuels, etc.
+
+Ce qu'on a construit côté Reforger (§3.2) est un **choix différent, pas un portage fidèle** : `AddFactionPoints` s'exécute immédiatement à chaque `SCR_ETaskState.COMPLETED`, donc le score existe en continu pendant la partie plutôt qu'en un seul instantané final.
+
+Les deux se défendent :
+- **Notre approche (temps réel)** permet un score affiché en direct (HUD, §4) et correspond mieux au type d'événement natif Reforger (`GetOnTaskStateChanged`).
+- **L'approche d'origine (batch final)** garantit une évaluation cohérente de tous les objectifs au même instant — pas de risque qu'un objectif "gagné tôt" reste comptabilisé alors que la situation a tourné entre-temps pour un objectif de type `INSIDE`/`OUTSIDE` non verrouillé.
+
+**Nuance importante** : OMTK ne fait pas *tout* en temps réel côté score final, mais il **verrouille bien certains objectifs en temps réel** — les types temporisés (`T_INSIDE`, `T_OUTSIDE`, `T_SURVIVAL`, `T_DESTRUCTION`) enregistrent leur résultat dans un tableau de drapeaux (`sb_f`) au moment précis de leur échéance, via `omtk_setFlagResult`. C'est exactement le mécanisme de **verrouillage horodaté** qu'on documentait comme manquant côté Reforger (§9) — sauf que dans OMTK, ce verrouillage alimente un drapeau consulté plus tard au calcul final, il ne pousse pas directement de points.
+
+**À trancher avant d'aller plus loin** : reproduire fidèlement le modèle "instantané final + drapeaux verrouillés", ou assumer le modèle "temps réel" déjà construit et fonctionnel. Les deux sont légitimes ; ce n'est plus une inconnue technique mais un choix de conception à faire consciemment.
+
+### 3.4ter Le type `ACTION` n'évalue rien — il lit une valeur déjà posée ailleurs
+
+Contrairement aux autres types (`INSIDE`, `SURVIVAL`...), `ACTION` ne calcule aucune condition au moment de l'évaluation — il lit simplement une valeur déjà écrite par `omtk_setObjectiveResult`, appelée depuis `omtk_closeAction`. Ce dernier est déclenché par une **action interactible en jeu**, avec une **barre de progression affichée** (`dialog_action_progress.hpp`, un dialogue dédié jamais vu avant ce croisement) : le joueur interagit, la barre se remplit sur une durée configurée, et c'est ce geste qui fixe le résultat — pas une condition de zone ou de survie.
+
+Sur Reforger, ça correspondrait à une action déclenchable sur une entité (voir le mécanisme d'action déjà évoqué pour les officiers dans le récap [`warm_up`](OMTK_WarmUp_Reforger_Recap.md), §4.3), avec une barre de progression native si l'UI le permet — à vérifier.
+
+### 3.4quater `DIFF` confirmé par le code
+
+Le mode `DIFF` (déjà supposé, jamais vérifié) est confirmé tel quel : pour remporter une zone contestée, la faction doit avoir plus d'unités dans la zone que **les deux** autres camps à la fois, pas seulement l'un d'eux. Le code le vérifie littéralement par deux comparaisons combinées (`ET` logique), une par camp adverse.
+
+### 3.4quinquies Un second système d'identifiant, distinct des joueurs
+
+Le mode `OMTK_ID` (parfois nommé `MT_ID` dans le code — un des deux noms est probablement un résidu, à clarifier si on retrouve la bonne variable) sert à cibler des **entités précises** liées à un objectif — typiquement un VIP à protéger ou éliminer — via une variable `mt_id` posée sur l'unité elle-même. C'est un mécanisme **différent** de l'`OMTK_ID` du joueur documenté dans le récap [`kill_logger`](OMTK_KillLogger_Reforger_Recap.md) (qui contournait l'écrasement du nom de variable par le pseudo) : celui-ci identifie un objectif-cible, pas un joueur. Les deux portent malheureusement le même nom dans le code d'origine — à ne pas confondre en portant la logique.
+
 ### 3.5 Test de bout en bout réussi
 
 Séquence observée dans la console, après correction du bug d'abonnement dupliqué (§3.2) :
@@ -193,6 +221,14 @@ Rien de cette section n'a encore été compilé ni testé — à traiter comme l
 
 ---
 
+## 5bis. Correction : le vainqueur est bien transmis à la chaîne de statistiques
+
+Le récapitulatif [`kill_logger`](OMTK_KillLogger_Reforger_Recap.md), §6.5, affirmait que l'agrégat manquant le plus important côté statistiques était le vainqueur de mission, absent de la base. **C'est à corriger** : le vrai code source montre que `omtk_sb_compute_scoreboard` envoie explicitement `[_winner, score_ouest, score_est]` à `statslogger_fnc_mission_end`, puis déclenche `statslogger_fnc_export`, dès lors que le plugin `STATSLOGGER` est présent.
+
+**La donnée part donc bien de la source.** Si le site `aar.ofcra.org` n'affiche pas de vainqueur agrégé, le problème est en aval — stockage en base, ou affichage — pas dans l'instrumentation du jeu. Ça change la nature du travail : il ne s'agit pas d'ajouter un événement manquant côté `kill_logger`, mais de vérifier ce que devient cette donnée une fois reçue côté serveur de statistiques. Cette correction devra être répercutée dans le récapitulatif `kill_logger`.
+
+---
+
 ## 6. Chaîne complète (mise à jour)
 
 ```
@@ -222,6 +258,7 @@ Fin de partie (hypothèse, non testée) :
 | Réplication (concepts) | `community.bistudio.com/wiki/Arma_Reforger:Multiplayer_Scripting` |
 | Modding par override/super | `community.bistudio.com/wiki/Arma_Reforger:Scripting_Modding` |
 | Sample de code réel | `github.com/BohemiaInteractive/Arma-Reforger-Samples` -> `SampleMod_ModdedScript` |
+| Code source réel du module `score_board` (Arma 3) | `github.com/ofcrav2/omtk/tree/master/omtk/score_board` |
 | Explorateur de code source du jeu | `arexplorer.zeroy.com` -- utile pour vérifier un nom de classe/méthode avant de coder, mais certains fichiers indexés sont commentés/désactivés dans la vraie version : vérifier par compilation |
 | Scenario Framework (concepts) | `community.bistudio.com/wiki/Arma_Reforger:Scenario_Framework` |
 | Scenario Framework (tutoriel pas à pas) | `community.bistudio.com/wiki/Arma_Reforger:Scenario_Framework_Setup_Tutorial` |

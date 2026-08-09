@@ -136,7 +136,7 @@ Le journal actuel enregistre **plus que ce que laissait supposer le format `.RPT
 
 Autrement dit, une partie de la richesse visée existe déjà côté Arma 3 : le portage doit au minimum la reproduire, pas la redécouvrir. C'est aussi la liste de champs à retrouver côté Reforger (voir §10).
 
-*Anomalie à vérifier au passage : certains kills sont attribués à un joueur avec une arme du camp adverse (un fusilier BLUFOR crédité d'un M240G ou d'un RPG-7V2). Ramassage d'arme sur le terrain, ou erreur d'attribution du logger ? À trancher — la réponse conditionne la fiabilité des statistiques par arme.*
+*Point confirmé : les kills attribués à un joueur avec une arme du camp adverse (un fusilier BLUFOR crédité d'un M240G ou d'un RPG-7V2) ne sont pas une erreur — c'est du ramassage sur cadavre. Le champ enregistre donc **l'arme réellement employée**, pas l'arme de dotation. C'est le bon comportement, et il faudra le reproduire : côté Reforger, l'arme doit être lue sur l'entité au moment du tir, pas déduite du rôle.*
 
 ### 4.4 Trois règles
 
@@ -210,13 +210,15 @@ Deux pièges, tous deux corrigeables :
 
 - **Auteur et chef peuvent être la même personne** sur une mission donnée. Les deux agrégats ne sont alors pas indépendants. À prévoir dans le modèle de données.
 - **Certaines missions sont co-écrites** (« Rigga and Rosbif », « Nasa & Rigel »). Le champ auteur est aujourd'hui du texte libre, avec des variantes de casse et d'orthographe pour un même auteur. Un identifiant d'auteur serait nécessaire pour agréger proprement.
-- **Les deux sites ne s'accordent pas.** Pour *Siege of Marawi Redux*, la fiche de mission (`game.ofcra.org`) indique « Mission Maker : Nasa », tandis que le centre de statistiques (`aar.ofcra.org`) attribue la mission à Rosbif. Tant que les deux bases ne partagent pas un identifiant d'auteur commun, toute agrégation par auteur est bâtie sur du sable. **À vérifier et arbitrer avant de construire quoi que ce soit sur cette strate.**
+- **Une mission peut avoir plusieurs auteurs**, et les deux sites n'enregistrent pas le même. Pour *Siege of Marawi Redux*, la fiche de mission (`game.ofcra.org`) indique « Mission Maker : Nasa » quand le centre de statistiques (`aar.ofcra.org`) attribue la mission à Rosbif — les deux sont exacts, chaque base ne retient qu'un nom. Le champ doit donc être **une liste d'identifiants d'auteur**, pas une chaîne unique, sous peine de fausser toute agrégation sur cette strate.
 
-### 6.5 L'agrégat qui manque le plus
+### 6.5 L'agrégat qui manque le plus — CORRIGÉ après lecture du vrai code source
 
-**Le résultat.** Le tableau des missions du centre de statistiques comporte nom, type, date, carte, auteur, durée et effectifs par camp — **mais aucune colonne vainqueur**. Sur la fiche de mission individuelle, le champ existe mais reste souvent à « Equal / not provided », y compris pour des missions décidées sans ambiguïté.
+**Correction d'une conclusion antérieure.** Cette section affirmait que le vainqueur agrégé manquait dès la collecte. C'est faux : la lecture du vrai `library.sqf` de `score_board` (voir récap [`score_board`](OMTK_ScoreBoard_Reforger_Recap.md), §5bis) montre que `omtk_sb_compute_scoreboard` envoie explicitement `[vainqueur, score_ouest, score_est]` à `statslogger_fnc_mission_end` en fin de mission, dès lors que le plugin `STATSLOGGER` est actif. **La donnée part bien de la source.**
 
-C'est la donnée la plus simple à enregistrer et la plus lourde de conséquences : sans elle, aucune analyse d'équilibre — ni par rôle, ni par auteur, ni par chef — n'est possible.
+**Le vrai problème est donc en aval, pas à la collecte.** Le champ existe sur la fiche de mission individuelle et prend trois valeurs (victoire, défaite, égalité), et le résultat est transmis au moment du calcul final. Mais il **n'apparaît pas agrégé** dans le tableau des missions du centre de statistiques (nom, type, date, carte, auteur, durée, effectifs — pas de colonne vainqueur), ce qui reste à expliquer : perte lors du stockage côté serveur de statistiques, ou simple absence d'affichage d'une donnée pourtant présente en base. À vérifier côté infrastructure du site, pas côté jeu.
+
+**L'étiquette « Equal / not provided » confond toujours deux états distincts** — une égalité réelle et une absence de saisie. Ce point reste valable indépendamment de la correction ci-dessus : impossible de distinguer une mission nulle d'une mission non renseignée, donc impossible de savoir si un corpus contient 3 % ou 30 % de trous. Deux champs séparés, ou une valeur nulle explicite, lèveraient l'ambiguïté.
 
 ---
 
