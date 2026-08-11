@@ -52,10 +52,10 @@ modules sur onze** demandent réellement d'écrire du code.
 | `score_board` | Code — scoring moddé, réplication, HUD, écran de fin | **Testé en jeu** | [Récapitulatif](docs/OMTK_ScoreBoard_Reforger_Recap.md) |
 | `warm_up` | Code — minuteur autonome, zones par faction, invulnérabilité | **Testé en jeu** (voir réserves) | [Récapitulatif](docs/OMTK_WarmUp_Reforger_Recap.md) |
 | `kill_logger` | Code — Instigator + écriture FileIO | **Testé en jeu** | [Récapitulatif](docs/OMTK_KillLogger_Reforger_Recap.md) |
-| `infantry_loadouts` | Config — factions et classes par héritage de prefabs | Doc seulement, rien construit | [Récapitulatif](docs/OMTK_Loadouts_Reforger_Recap.md) |
-| `dynamic_startup` | Config — Scenario Framework + `SCR_Task` | Doc seulement, rien construit | [Récapitulatif](docs/OMTK_DynamicStartup_Reforger_Recap.md) |
-| `vehicles_cargos` | Config — `FillInitialStorages` sur les prefabs véhicules | Doc seulement, rien construit | [Récapitulatif](docs/OMTK_VehiclesCargos_Reforger_Recap.md) |
-| `difficulty_check` · `IA_skills` · `ia_manager` | Config — `SCR_AIConfigComponent` sur les prefabs | Doc seulement + tension à clarifier (voir « À définir ») | [Récapitulatif](docs/OMTK_IASkills_Reforger_Recap.md) |
+| `infantry_loadouts` | Config — factions et classes par héritage de prefabs | **Abandonné** — pas nécessaire, RHS fournit déjà les factions | [Récapitulatif](docs/OMTK_Loadouts_Reforger_Recap.md) |
+| `dynamic_startup` | Config — Scenario Framework + `SCR_Task` | **Pas un module toolkit** — à la charge du créateur de mission chaque semaine, via le World Editor natif | [Récapitulatif](docs/OMTK_DynamicStartup_Reforger_Recap.md) |
+| `vehicles_cargos` | Config — bridage des véhicules (chargement initial à la charge du créateur de mission) | Doc seulement, rien construit — portée réduite | [Récapitulatif](docs/OMTK_VehiclesCargos_Reforger_Recap.md) |
+| `difficulty_check` · `IA_skills` | Config — `SCR_AIConfigComponent`, IA d'objectif uniquement (pas de combattante d'appoint) | Doc seulement, rien construit | [Récapitulatif](docs/OMTK_IASkills_Reforger_Recap.md) |
 | `radio_settings` | Config — fréquences et clés dans la config de faction | Doc seulement, rien vérifié en jeu | [Récapitulatif](docs/OMTK_Radio_Reforger_Recap.md) |
 | `radio_lock` | Déjà natif — chiffrement par faction au spawn | Doc seulement, rien vérifié en jeu | [Récapitulatif](docs/OMTK_Radio_Reforger_Recap.md) |
 | `test_mode` | Déjà natif — Debug Areas, exécutables Diag, Remote Console | Doc seulement, procédure à écrire | [Récapitulatif](docs/OMTK_TestMode_Reforger_Recap.md) |
@@ -79,7 +79,7 @@ Plusieurs recoupent probablement déjà des modules documentés (voir tableau ci
 | 1 | Prise en main du Workbench (installation, tutoriels, samples officiels) | **fait** — Workbench installé, `SampleMod_ModdedScript` compilé et testé en jeu |
 | 2 | Audit de l'existant et correspondance avec les systèmes natifs | **fait** — ce dépôt (voir aussi modules non audités ci-dessus) |
 | 3 | Prototype minimal d'un module simple, testé de bout en bout | **fait** — `kill_logger` (morts, dégâts, positions, véhicules, connexions, journal structuré) |
-| 4 | Construction module par module, dans l'ordre des dépendances | **en cours** — 3 des 11 modules construits et testés en jeu (`kill_logger`, `score_board`, `warm_up`) ; `infantry_loadouts` abandonné ; les 7 autres restent à construire — voir [Ce qui reste à faire](#ce-qui-reste-à-faire) |
+| 4 | Construction module par module, dans l'ordre des dépendances | **en cours** — 3 des 11 modules construits et testés en jeu (`kill_logger`, `score_board`, `warm_up`) ; `infantry_loadouts` et `dynamic_startup` pas nécessaires ; les 6 autres restent à construire, certains à portée réduite — voir [Ce qui reste à faire](#ce-qui-reste-à-faire) |
 | 5 | Assemblage dans un `GameMode` et mission-modèle réutilisable | à faire — un GameMode de test fonctionnel existe, à reconstruire proprement sur une base `GameModeSF` héritée, sans les résidus de test (voir récap `warm_up`, §6) |
 | 6 | Test en conditions réelles avec des membres de l'OFCRA | à faire |
 | 7 | Documentation de chaque composant pour permettre la contribution | à faire |
@@ -110,30 +110,47 @@ trop résout le problème.
 
 **`warm_up`** — zones de confinement, téléportation sans mort, invulnérabilité et minuteur global
 confirmés en jeu. Restent ouverts :
-- vote des officiers pour écourter le warm-up (mécanisme non retrouvé côté Reforger)
-- gel des véhicules / retrait de carburant pendant le warm-up (non abordé)
-- assignation de faction pré-déterminée par identité de joueur (aucune piste testée — les camps
-  OFCRA sont décidés hors jeu, contrairement aux écrans de sélection Reforger disponibles)
-- extension de l'invulnérabilité/confinement aux IA jouables si elles sont encore utilisées (voir `ia_manager` ci-dessous)
+- fin de warm-up déclenchée par un admin (pas un vote d'officiers) — même mécanisme que le bouton
+  « End Warm-up » du panneau admin (voir `ui` ci-dessous) : un seul chemin de code à construire, pas deux
+- véhicules immobilisés pendant le warm-up (pas de conduite/déplacement), mais entrée/sortie et
+  gestion de l'inventaire doivent rester possibles — bloquer spécifiquement la simulation
+  moteur/déplacement, pas un blocage généralisé façon invulnérabilité joueur
+- extension de l'invulnérabilité/confinement aux IA jouables **seulement si elles sont volontairement
+  placées dans la zone de warm-up** (même régime que les joueurs) — une IA-objectif (otage, cible à
+  capturer, etc.) qui n'y est pas placée reste inchangée
 - nettoyage des brouillons obsolètes dans `docs/drafts/` (approche `CanAdvanceState` abandonnée au profit du minuteur autonome)
+
+**Hors périmètre, retiré de la liste** : l'assignation de faction pré-déterminée n'est pas un
+sujet Reforger — les camps sont décidés à la création de mission, les joueurs se slotent
+eux-mêmes à leur place convenue, les admins font la police. Aucun mécanisme à construire.
 
 **`score_board`** — score par joueur/faction et déclenchement par tâche du Scenario Framework
 confirmés en jeu. Rien de bloquant identifié à ce jour au-delà des points listés dans son récapitulatif.
 
 **`kill_logger`** — chaîne complète testée en jeu. Rien de bloquant identifié.
 
+### Modules pas nécessaires (retirés de la liste)
+
+- **`dynamic_startup`** — pas un module toolkit : la mise en place Area/Layer/Slot se fait à la
+  main par le créateur de mission, chaque semaine, directement dans le World Editor
+- **`infantry_loadouts`** — abandonné, l'OFCRA n'en a pas besoin (RHS: Status Quo fournit déjà les
+  factions AFRF/USAF)
+
 ### Modules jamais construits (doc théorique seulement)
 
-- **`dynamic_startup`** — construire une première Area/Layer/Slot minimale, tester la randomisation
-  (Debug Areas vs Core Areas), résoudre la réservation de créneaux par escouade membre
-- **`infantry_loadouts`** — construire un personnage de base OFCRA complet, tester une config de
-  faction custom, évaluer la couverture réelle des assets RHS: Status Quo par rapport aux besoins
-- **`IA_skills` / `difficulty_check` / `ia_manager`** — construire et tester `SCR_AIConfigComponent`
-  sur un personnage OFCRA ; **clarifier avec l'OFCRA la tension `ia_manager`** (voir « À définir »)
-- **`radio_lock` / `radio_settings`** — vérifier en jeu le chiffrement par faction, la capture de
-  radio ennemie, et si le respawn sur manpack doit être désactivé (l'OFCRA ne respawn pas)
-- **`vehicles_cargos`** — construire un véhicule OFCRA avec `FillInitialStorages` custom, tester
-  la persistance "Save In Loadout"
+- **`IA_skills` / `difficulty_check`** — construire et tester `SCR_AIConfigComponent`, **uniquement
+  pour l'IA d'objectif** (civils, otages — désactivation des comportements de combat). Le volet
+  `ia_manager` (IA combattante d'appoint pour équilibrer les effectifs) n'est **pas retenu**,
+  hors périmètre.
+- **`radio_lock` / `radio_settings`** — vérifier en jeu le chiffrement par faction natif ; **ajouter
+  un module d'effacement/reset de radio** — si une radio est perdue au profit de l'ennemi, la squad
+  qui l'a perdue doit pouvoir la vider à distance (bouton ou autre) pour empêcher l'ennemi de
+  l'exploiter malgré le chiffrement. À garder sous le coude, surtout si ça demande du travail —
+  pas prioritaire.
+- **`vehicles_cargos`** — le chargement initial (`FillInitialStorages`) est à la charge du créateur
+  de mission, pas un besoin toolkit. En revanche, il faut une **capacité de bridage des véhicules**
+  (détail à définir avec l'OFCRA — cohérente avec l'immobilisation en warm-up ci-dessus, probablement
+  plus large).
 - **`test_mode`** — pas un module à coder : écrire la procédure de test standard (Debug Areas,
   exécutables Diag, Remote Console) une fois éprouvée en conditions réelles
 - **`ui` (panneau admin)** — vérifier ce que couvre déjà Game Master nativement avant d'écrire un
@@ -203,10 +220,3 @@ le détail des impasses rencontrées et pourquoi elles ont été abandonnées.
   d'OMTK, et à vérifier contre l'Arma Public License si du code des samples Bohemia est réutilisé.
 - **`.gitignore` Workbench.** Les fichiers de cache générés par l'outil ne sont pas encore connus —
   à compléter après usage prolongé du Workbench.
-- **Assignation de faction pré-déterminée.** Le vrai usage OFCRA (camps décidés en amont, hors jeu)
-  n'a pas encore d'équivalent testé côté Reforger — voir récap `warm_up`, §4.3 et §6.
-- **IA combattante d'appoint (`ia_manager`).** Le module source `ia_manager` documente un usage
-  d'IA combattante pour équilibrer les effectifs quand les camps sont déséquilibrés — ce qui
-  contredit en partie le principe « aucune IA combattante » posé en tête de ce document (voir
-  récapitulatif `IA_skills`, §9bis). À clarifier avec l'OFCRA : usage encore pratiqué aujourd'hui,
-  ou abandonné au profit du seul usage non combattant (civils, otages) ?
