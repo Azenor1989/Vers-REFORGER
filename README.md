@@ -50,7 +50,7 @@ modules sur onze** demandent réellement d'écrire du code.
 | Module OMTK | Nature du travail sur Reforger | Analyse |
 |---|---|---|
 | `score_board` | Code — scoring moddé, réplication, HUD, écran de fin | [Récapitulatif](docs/OMTK_ScoreBoard_Reforger_Recap.md) |
-| `warm_up` | Code — état PREGAME du GameMode | [Récapitulatif](docs/OMTK_WarmUp_Reforger_Recap.md) |
+| `warm_up` | Code — minuteur autonome, zones par faction, invulnérabilité | [Récapitulatif](docs/OMTK_WarmUp_Reforger_Recap.md) |
 | `kill_logger` | Code — Instigator + écriture FileIO | [Récapitulatif](docs/OMTK_KillLogger_Reforger_Recap.md) |
 | `infantry_loadouts` | Config — factions et classes par héritage de prefabs | [Récapitulatif](docs/OMTK_Loadouts_Reforger_Recap.md) |
 | `dynamic_startup` | Config — Scenario Framework + `SCR_Task` | [Récapitulatif](docs/OMTK_DynamicStartup_Reforger_Recap.md) |
@@ -80,20 +80,28 @@ de considérer l'audit terminé.
 | 1 | Prise en main du Workbench (installation, tutoriels, samples officiels) | **fait** — Workbench installé, `SampleMod_ModdedScript` compilé et testé en jeu |
 | 2 | Audit de l'existant et correspondance avec les systèmes natifs | **fait** — ce dépôt (voir aussi modules non audités ci-dessus) |
 | 3 | Prototype minimal d'un module simple, testé de bout en bout | **fait** — `kill_logger` (morts, dégâts, positions, véhicules, connexions, journal structuré) |
-| 4 | Construction module par module, dans l'ordre des dépendances | **en cours** — `score_board` construit et validé en jeu (score par faction + déclenchement par un vrai objectif du Scenario Framework) ; `infantry_loadouts` abandonné, l'OFCRA ne l'utilise plus ; `warm_up` en pause (voir son récapitulatif, §2.1) |
-| 5 | Assemblage dans un `GameMode` et mission-modèle réutilisable | à faire |
+| 4 | Construction module par module, dans l'ordre des dépendances | **en cours** — `score_board` construit et validé en jeu (score par faction + déclenchement par un vrai objectif du Scenario Framework) ; `warm_up` construit et validé en jeu (zones par faction, invulnérabilité, minuteur autonome — voir son récapitulatif) ; `infantry_loadouts` abandonné, l'OFCRA ne l'utilise plus |
+| 5 | Assemblage dans un `GameMode` et mission-modèle réutilisable | à faire — un GameMode de test fonctionnel existe, à nettoyer des résidus de tests avant de servir de base définitive (voir récap `warm_up`, §4) |
 | 6 | Test en conditions réelles avec des membres de l'OFCRA | à faire |
 | 7 | Documentation de chaque composant pour permettre la contribution | à faire |
 
 Le détail de ce qui a été validé en pratique (noms de classes/méthodes confirmés par compilation,
 procédure World Editor, historique des corrections) est dans les récapitulatifs
-[`kill_logger`](docs/OMTK_KillLogger_Reforger_Recap.md) et
-[`score_board`](docs/OMTK_ScoreBoard_Reforger_Recap.md), section par section.
+[`kill_logger`](docs/OMTK_KillLogger_Reforger_Recap.md), [`score_board`](docs/OMTK_ScoreBoard_Reforger_Recap.md)
+et [`warm_up`](docs/OMTK_WarmUp_Reforger_Recap.md), section par section.
 
 Une remarque sur l'ordre, toujours valable : la **réplication** (`RplProp` / `BumpMe` / `RplRpc`)
 n'a aucun équivalent en SQF et conditionne la façon d'écrire chaque composant multijoueur — c'est
-d'ailleurs ce qui explique une partie des détours rencontrés en construisant `score_board`
-(abonnements dupliqués à un événement statique, voir le récapitulatif correspondant).
+d'ailleurs ce qui explique une partie des détours rencontrés en construisant `score_board` et
+`warm_up` (abonnements dupliqués à un événement statique, événements marqués obsolètes dans le
+moteur, pièges de configuration d'entités — voir les récapitulatifs correspondants).
+
+**Une règle apprise à la dure, valable pour tout le reste du projet** : un monde Reforger ne
+tolère **qu'un seul** `SCR_BaseGameMode` actif — c'est documenté comme obligatoire côté moteur,
+pas une simple bonne pratique. En avoir deux, même avec l'un désactivé via sa case "Disabled",
+casse le démarrage de la partie de façon peu lisible (écran noir, doublons de tous les
+gestionnaires de faction/loadout/radio). Seule la suppression pure et simple du GameMode en
+trop résout le problème.
 
 ---
 
@@ -114,7 +122,9 @@ et `warm_up`. Les conséquences pour tout le reste :
 Corriger ces documents contre le comportement réel du Workbench est l'objet de l'étape 1 — et
 c'est ce qui s'est déjà produit plusieurs fois pour `kill_logger`, `score_board` et `warm_up` :
 des noms d'API supposés se sont révélés faux à la compilation, corrigés ensuite dans les
-récapitulatifs correspondants.
+récapitulatifs correspondants. `warm_up` en particulier a nécessité plusieurs itérations en
+conditions de jeu réelles avant d'aboutir à une version stable — voir son récapitulatif pour
+le détail des impasses rencontrées et pourquoi elles ont été abandonnées.
 
 ---
 
@@ -143,3 +153,5 @@ récapitulatifs correspondants.
   d'OMTK, et à vérifier contre l'Arma Public License si du code des samples Bohemia est réutilisé.
 - **`.gitignore` Workbench.** Les fichiers de cache générés par l'outil ne sont pas encore connus —
   à compléter après l'étape 1.
+- **Assignation de faction pré-déterminée.** Le vrai usage OFCRA (camps décidés en amont, hors jeu)
+  n'a pas encore d'équivalent testé côté Reforger — voir récap `warm_up`, §4.3 et §6.
