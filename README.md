@@ -116,9 +116,8 @@ blocage moteur, etc.) dans le récapitulatif. Restent ouverts :
 - tester la **vraie liste d'admins** sur un serveur dédié/hébergé réel (config.json avec un ID
   Reforger dans `game.admins`) — seul le rejet "pas admin" a été exercé, pas la confirmation
 - retirer le bouton de test (`OMTK_TEST_AdminEndWarmupAction.c`) une fois ce test fait
-- trancher le doublon d'invulnérabilité : `OMTK_WarmupInvulnerability.c` (jamais synchronisé sur
-  la vraie durée du warm-up) semble redondant et inerte face au mécanisme réellement testé
-  (`EnableDamageHandling` dans `OMTK_WarmupZoneComponent`) — à retirer après vérification
+- ~~trancher le doublon d'invulnérabilité~~ — **fait : `OMTK_WarmupInvulnerability.c` supprimé**,
+  branchement `OnGameStateChanged` retiré d'`OMTK_ObjectiveScoreLink.c`
 - ~~décider du sort d'`OMTK_ReadyAction.c`~~ — **fait : supprimé** (code mort, jamais câblé, pointait vers l'ancien système `CanAdvanceState`)
 - nettoyage des brouillons obsolètes dans `docs/drafts/` (`OMTK_ReadyAction_DRAFT.c`,
   `OMTK_WarmUpComponent_DRAFT.c` — approche `CanAdvanceState` abandonnée)
