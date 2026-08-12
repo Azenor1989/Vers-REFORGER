@@ -119,6 +119,7 @@ blocage moteur, etc.) dans le récapitulatif. Restent ouverts :
 - ~~trancher le doublon d'invulnérabilité~~ — **fait : `OMTK_WarmupInvulnerability.c` supprimé**,
   branchement `OnGameStateChanged` retiré d'`OMTK_ObjectiveScoreLink.c`
 - ~~décider du sort d'`OMTK_ReadyAction.c`~~ — **fait : supprimé** (code mort, jamais câblé, pointait vers l'ancien système `CanAdvanceState`)
+- ~~`OMTK_WarmUpComponent.c` (dernier résidu du système `CanAdvanceState`)~~ — **fait : supprimé du projet**, plus rien ne l'appelait depuis la suppression d'`OMTK_ReadyAction.c`
 - nettoyage des brouillons obsolètes dans `docs/drafts/` (`OMTK_ReadyAction_DRAFT.c`,
   `OMTK_WarmUpComponent_DRAFT.c` — approche `CanAdvanceState` abandonnée)
 
