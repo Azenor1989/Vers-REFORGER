@@ -2,7 +2,7 @@
 
 Travaux préparatoires à la migration d'OMTK (OFCRA Mission ToolKit) d'Arma 3 vers Arma Reforger.
 
-> **État : en construction active.** Trois modules (`kill_logger`, `score_board`, `warm_up`) sont construits et testés en jeu. Le reste du dépôt est de l'analyse documentaire, pas encore vérifiée en Workbench. Voir [Fiabilité](#fiabilité) avant de vous appuyer sur un détail technique, et [Ce qui reste à faire](#ce-qui-reste-à-faire) pour l'état complet, module par module.
+> **État : en construction active.** Quatre modules (`kill_logger`, `score_board`, `warm_up`, `IA_skills`) sont construits et testés en jeu ; `ui` (panneau admin) est en cours, une première brique construite. Le reste du dépôt est de l'analyse documentaire, pas encore vérifiée en Workbench. Voir [Fiabilité](#fiabilité) avant de vous appuyer sur un détail technique, et [Ce qui reste à faire](#ce-qui-reste-à-faire) pour l'état complet, module par module.
 
 ---
 
@@ -177,9 +177,10 @@ S'y ajoutent des problèmes de données identifiés sur le corpus existant (cham
 ## Fiabilité
 
 Ces documents ont été rédigés à partir du wiki Bohemia, du Dev Hub Arma Reforger, du code source
-du jeu et de mods communautaires. Trois d'entre eux ont depuis été confirmés par compilation et
-test en jeu réel dans le Workbench (version 1.7.0.54) : `kill_logger`, `score_board`, `warm_up` —
-signalé au cas par cas dans leurs récapitulatifs par la mention « confirmé en pratique ». Tout le
+du jeu et de mods communautaires. Quatre d'entre eux ont depuis été confirmés par compilation et
+test en jeu réel dans le Workbench (version 1.7.0.54) : `kill_logger`, `score_board`, `warm_up`,
+`IA_skills` — signalé au cas par cas dans leurs récapitulatifs par la mention « confirmé en
+pratique ». `ui` (panneau admin) est partiellement confirmé (bouton End Warm-up compilé). Tout le
 reste n'a encore jamais tourné en Workbench. Les conséquences :
 
 - les noms d'API (`SCR_*`, méthodes, attributs) peuvent avoir changé : certaines pages consultées
