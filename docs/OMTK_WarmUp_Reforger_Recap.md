@@ -80,7 +80,7 @@ protected void OMTK_OnPlayerSpawned(int playerId, IEntity controlledEntity)
 }
 ```
 
-**⚠️ Doublon non résolu** : `OMTK_WarmupInvulnerability.c` implémente un **second** mécanisme d'invulnérabilité, via `HijackDamageHandling()` sur `SCR_CharacterDamageManagerComponent`, déclenché par `OnGameStateChanged` (dans `OMTK_ObjectiveScoreLink.c`) — observé en jeu se désactivant **quasi immédiatement** au lancement de la partie (`Invulnérabilité warm-up réglée sur false` dès le premier `Frame`), pas synchronisé avec la vraie durée du warm-up. Les deux mécanismes coexistent dans le projet actuel ; celui de ce fichier (`EnableDamageHandling`) est celui réellement testé et fiable. **À trancher avant la mise en production : retirer `OMTK_WarmupInvulnerability.c` et son déclenchement dans `OMTK_ObjectiveScoreLink.c`, qui semblent redondants et inertes.**
+**⚠️ Doublon résolu** : `OMTK_WarmupInvulnerability.c` implémentait un **second** mécanisme d'invulnérabilité, via `HijackDamageHandling()` sur `SCR_CharacterDamageManagerComponent`, déclenché par `OnGameStateChanged` (dans `OMTK_ObjectiveScoreLink.c`) — observé en jeu se désactivant **quasi immédiatement** au lancement de la partie (`Invulnérabilité warm-up réglée sur false` dès le premier `Frame`), pas synchronisé avec la vraie durée du warm-up. **Décision : `OMTK_WarmupInvulnerability.c` supprimé du projet, et le branchement `OnGameStateChanged` retiré d'`OMTK_ObjectiveScoreLink.c`.** Le mécanisme réellement testé et fiable (`EnableDamageHandling`, ce fichier) est le seul restant.
 
 ### 3.5 Minuteur global et fin de warm-up — CONFIRMÉ EN JEU
 
@@ -241,7 +241,7 @@ Voir version précédente de ce document pour le détail comparatif `GameMode_Te
 **Reste à faire, dans un ordre suggéré** :
 - **Tester la vraie liste d'admins** sur un serveur dédié/hébergé réel (config.json avec un ID Reforger dans `game.admins`) — le chemin "admin confirmé → fin du warm-up" n'a jamais été exercé, seul le rejet "pas admin" l'a été.
 - **Retirer le bouton de test** (`OMTK_TEST_AdminEndWarmupAction.c` + son Action Context sur le véhicule) une fois le test ci-dessus fait.
-- **Trancher le doublon d'invulnérabilité** (§3.4) : retirer `OMTK_WarmupInvulnerability.c` et son déclenchement dans `OMTK_ObjectiveScoreLink.c`, qui semblent redondants et inertes face au mécanisme réellement testé.
+- ~~trancher le doublon d'invulnérabilité~~ — **fait : `OMTK_WarmupInvulnerability.c` supprimé**, branchement `OnGameStateChanged` retiré d'`OMTK_ObjectiveScoreLink.c`
 - ~~décider du sort d'`OMTK_ReadyAction.c`~~ — **fait : supprimé** (code mort, jamais câblé, pointait vers l'ancien système `CanAdvanceState`)
 - **Nettoyer `docs/drafts/`** : `OMTK_ReadyAction_DRAFT.c` et `OMTK_WarmUpComponent_DRAFT.c` documentent l'approche `CanAdvanceState` abandonnée — à retirer du dépôt, ce récapitulatif couvre déjà l'historique utile (§7).
 - Reconstituer proprement le GameMode final sur une base `GameModeSF` héritée, sans les résidus de manipulations de test.
