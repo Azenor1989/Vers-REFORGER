@@ -50,7 +50,7 @@ modules sur onze** demandent réellement d'écrire du code.
 | Module OMTK | Nature du travail sur Reforger | Statut | Analyse |
 |---|---|---|---|
 | `score_board` | Code — scoring moddé, réplication, HUD, écran de fin | **Testé en jeu** | [Récapitulatif](docs/OMTK_ScoreBoard_Reforger_Recap.md) |
-| `warm_up` | Code — minuteur autonome, zones par faction, invulnérabilité | **Testé en jeu** (voir réserves) | [Récapitulatif](docs/OMTK_WarmUp_Reforger_Recap.md) |
+| `warm_up` | Code — minuteur autonome, zones par faction, invulnérabilité, trigger admin, véhicules, IA | **Testé en jeu** | [Récapitulatif](docs/OMTK_WarmUp_Reforger_Recap.md) |
 | `kill_logger` | Code — Instigator + écriture FileIO | **Testé en jeu** | [Récapitulatif](docs/OMTK_KillLogger_Reforger_Recap.md) |
 | `infantry_loadouts` | Config — factions et classes par héritage de prefabs | **Abandonné** — pas nécessaire, RHS fournit déjà les factions | [Récapitulatif](docs/OMTK_Loadouts_Reforger_Recap.md) |
 | `dynamic_startup` | Config — Scenario Framework + `SCR_Task` | **Pas un module toolkit** — à la charge du créateur de mission chaque semaine, via le World Editor natif | [Récapitulatif](docs/OMTK_DynamicStartup_Reforger_Recap.md) |
@@ -108,21 +108,25 @@ trop résout le problème.
 
 ### Modules construits et testés — réserves restantes
 
-**`warm_up`** — zones de confinement, téléportation sans mort, invulnérabilité et minuteur global
-confirmés en jeu. Restent ouverts :
-- fin de warm-up déclenchée par un admin (pas un vote d'officiers) — même mécanisme que le bouton
-  « End Warm-up » du panneau admin (voir `ui` ci-dessous) : un seul chemin de code à construire, pas deux
-- véhicules immobilisés pendant le warm-up (pas de conduite/déplacement), mais entrée/sortie et
-  gestion de l'inventaire doivent rester possibles — bloquer spécifiquement la simulation
-  moteur/déplacement, pas un blocage généralisé façon invulnérabilité joueur
-- extension de l'invulnérabilité/confinement aux IA jouables **seulement si elles sont volontairement
-  placées dans la zone de warm-up** (même régime que les joueurs) — une IA-objectif (otage, cible à
-  capturer, etc.) qui n'y est pas placée reste inchangée
-- nettoyage des brouillons obsolètes dans `docs/drafts/` (approche `CanAdvanceState` abandonnée au profit du minuteur autonome)
+**`warm_up`** — zones de confinement, téléportation sans mort, invulnérabilité, minuteur global,
+**et les trois points suivants tous validés en jeu cette session** : trigger admin de fin de
+warm-up, véhicules immobilisés (blocage moteur), IA en zone invulnérables. Détail complet des
+correctifs (flags `QueryEntitiesBySphere`, `ChimeraCharacter`, `SetCanMove` écarté au profit du
+blocage moteur, etc.) dans le récapitulatif. Restent ouverts :
+- tester la **vraie liste d'admins** sur un serveur dédié/hébergé réel (config.json avec un ID
+  Reforger dans `game.admins`) — seul le rejet "pas admin" a été exercé, pas la confirmation
+- retirer le bouton de test (`OMTK_TEST_AdminEndWarmupAction.c`) une fois ce test fait
+- trancher le doublon d'invulnérabilité : `OMTK_WarmupInvulnerability.c` (jamais synchronisé sur
+  la vraie durée du warm-up) semble redondant et inerte face au mécanisme réellement testé
+  (`EnableDamageHandling` dans `OMTK_WarmupZoneComponent`) — à retirer après vérification
+- décider du sort d'`OMTK_ReadyAction.c` : code mort, jamais câblé en jeu, pointe vers l'ancien
+  système `CanAdvanceState` abandonné — à réécrire pour appeler le trigger admin, ou à supprimer
+- nettoyage des brouillons obsolètes dans `docs/drafts/` (`OMTK_ReadyAction_DRAFT.c`,
+  `OMTK_WarmUpComponent_DRAFT.c` — approche `CanAdvanceState` abandonnée)
 
-**Hors périmètre, retiré de la liste** : l'assignation de faction pré-déterminée n'est pas un
-sujet Reforger — les camps sont décidés à la création de mission, les joueurs se slotent
-eux-mêmes à leur place convenue, les admins font la police. Aucun mécanisme à construire.
+**Hors périmètre, confirmé** : l'assignation de faction pré-déterminée n'est pas un sujet Reforger
+— les camps sont décidés à la création de mission, les joueurs se slotent eux-mêmes à leur place
+convenue, les admins font la police. Aucun mécanisme à construire.
 
 **`score_board`** — score par joueur/faction et déclenchement par tâche du Scenario Framework
 confirmés en jeu. Rien de bloquant identifié à ce jour au-delà des points listés dans son récapitulatif.
