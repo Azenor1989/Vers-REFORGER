@@ -119,8 +119,7 @@ blocage moteur, etc.) dans le récapitulatif. Restent ouverts :
 - trancher le doublon d'invulnérabilité : `OMTK_WarmupInvulnerability.c` (jamais synchronisé sur
   la vraie durée du warm-up) semble redondant et inerte face au mécanisme réellement testé
   (`EnableDamageHandling` dans `OMTK_WarmupZoneComponent`) — à retirer après vérification
-- décider du sort d'`OMTK_ReadyAction.c` : code mort, jamais câblé en jeu, pointe vers l'ancien
-  système `CanAdvanceState` abandonné — à réécrire pour appeler le trigger admin, ou à supprimer
+- ~~décider du sort d'`OMTK_ReadyAction.c`~~ — **fait : supprimé** (code mort, jamais câblé, pointait vers l'ancien système `CanAdvanceState`)
 - nettoyage des brouillons obsolètes dans `docs/drafts/` (`OMTK_ReadyAction_DRAFT.c`,
   `OMTK_WarmUpComponent_DRAFT.c` — approche `CanAdvanceState` abandonnée)
 
