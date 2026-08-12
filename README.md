@@ -55,7 +55,7 @@ modules sur onze** demandent réellement d'écrire du code.
 | `infantry_loadouts` | Config — factions et classes par héritage de prefabs | **Abandonné** — pas nécessaire, RHS fournit déjà les factions | [Récapitulatif](docs/OMTK_Loadouts_Reforger_Recap.md) |
 | `dynamic_startup` | Config — Scenario Framework + `SCR_Task` | **Pas un module toolkit** — à la charge du créateur de mission chaque semaine, via le World Editor natif | [Récapitulatif](docs/OMTK_DynamicStartup_Reforger_Recap.md) |
 | `vehicles_cargos` | Config — bridage des véhicules (chargement initial à la charge du créateur de mission) | Doc seulement, rien construit — portée réduite | [Récapitulatif](docs/OMTK_VehiclesCargos_Reforger_Recap.md) |
-| `difficulty_check` · `IA_skills` | Config — `SCR_AIConfigComponent`, IA d'objectif uniquement (pas de combattante d'appoint) | Doc seulement, rien construit | [Récapitulatif](docs/OMTK_IASkills_Reforger_Recap.md) |
+| `difficulty_check` · `IA_skills` | Config — `SCR_AIConfigComponent`, IA d'objectif uniquement (pas de combattante d'appoint) | **Testé en jeu** | [Récapitulatif](docs/OMTK_IASkills_Reforger_Recap.md) |
 | `radio_settings` | Config — fréquences et clés dans la config de faction | Doc seulement, rien vérifié en jeu | [Récapitulatif](docs/OMTK_Radio_Reforger_Recap.md) |
 | `radio_lock` | Déjà natif — chiffrement par faction au spawn | Doc seulement, rien vérifié en jeu | [Récapitulatif](docs/OMTK_Radio_Reforger_Recap.md) |
 | `test_mode` | Déjà natif — Debug Areas, exécutables Diag, Remote Console | Doc seulement, procédure à écrire | [Récapitulatif](docs/OMTK_TestMode_Reforger_Recap.md) |
@@ -140,10 +140,9 @@ confirmés en jeu. Rien de bloquant identifié à ce jour au-delà des points li
 
 ### Modules jamais construits (doc théorique seulement)
 
-- **`IA_skills` / `difficulty_check`** — construire et tester `SCR_AIConfigComponent`, **uniquement
-  pour l'IA d'objectif** (civils, otages — désactivation des comportements de combat). Le volet
-  `ia_manager` (IA combattante d'appoint pour équilibrer les effectifs) n'est **pas retenu**,
-  hors périmètre.
+- ~~**`IA_skills` / `difficulty_check`**~~ — **fait, testé en jeu** : `SCR_AIConfigComponent`, 4 cases
+  à décocher (Danger Events, Perception, Attack, Take Cover), confirmé en jeu. Le volet `ia_manager`
+  (IA combattante d'appoint) reste hors périmètre.
 - **`radio_lock` / `radio_settings`** — vérifier en jeu le chiffrement par faction natif ; **ajouter
   un module d'effacement/reset de radio** — si une radio est perdue au profit de l'ennemi, la squad
   qui l'a perdue doit pouvoir la vider à distance (bouton ou autre) pour empêcher l'ennemi de
