@@ -116,7 +116,7 @@ void RpcAsk_AdminEndWarmup(int playerId)
 2. Ajouter une entrée dans **Action Contexts** (nom + `PointInfo` de position).
 3. Ajouter l'action dans **Additional Actions**, avec ce contexte en `Parent Context List`, un `UiInfo` (nom affiché), une portée et une durée.
 
-**Constat important** : `OMTK_ReadyAction.c` (action radiale "chef de camp prêt", pointant vers l'ancien système `CanAdvanceState`/`SCR_PreGameGameModeStateComponent.ShortenWarmUp()` — voir §7) n'a **jamais été câblé** de cette façon dans le projet actuel : la classe existe, mais n'apparaît nulle part en jeu. C'est du code mort, pas un mécanisme fonctionnel qu'il faudrait juste reconnecter au nouveau système — à décider : le réécrire pour appeler `RpcAsk_AdminEndWarmup`, ou le supprimer.
+**Constat important** : `OMTK_ReadyAction.c` (action radiale "chef de camp prêt", pointant vers l'ancien système `CanAdvanceState`/`SCR_PreGameGameModeStateComponent.ShortenWarmUp()` — voir §7) n'a **jamais été câblé** de cette façon dans le projet actuel : la classe existait, mais n'apparaissait nulle part en jeu. Du code mort, pas un mécanisme fonctionnel qu'il aurait fallu juste reconnecter au nouveau système. **Décision : supprimé du projet.**
 
 Une action de test temporaire, `OMTK_TEST_AdminEndWarmupAction.c`, a été ajoutée et câblée sur le véhicule de test pour cette validation — **à retirer avant toute session OFCRA réelle** (visible par tout le monde, pas seulement les admins ; le filtre `IsPlayerOnAdminList` protège le traitement serveur mais pas l'affichage du bouton).
 
@@ -242,7 +242,7 @@ Voir version précédente de ce document pour le détail comparatif `GameMode_Te
 - **Tester la vraie liste d'admins** sur un serveur dédié/hébergé réel (config.json avec un ID Reforger dans `game.admins`) — le chemin "admin confirmé → fin du warm-up" n'a jamais été exercé, seul le rejet "pas admin" l'a été.
 - **Retirer le bouton de test** (`OMTK_TEST_AdminEndWarmupAction.c` + son Action Context sur le véhicule) une fois le test ci-dessus fait.
 - **Trancher le doublon d'invulnérabilité** (§3.4) : retirer `OMTK_WarmupInvulnerability.c` et son déclenchement dans `OMTK_ObjectiveScoreLink.c`, qui semblent redondants et inertes face au mécanisme réellement testé.
-- **Décider du sort de `OMTK_ReadyAction.c`** : code mort (jamais câblé), pointant vers l'ancien système `CanAdvanceState` abandonné — le réécrire pour appeler `RpcAsk_AdminEndWarmup`, ou le supprimer.
+- ~~décider du sort d'`OMTK_ReadyAction.c`~~ — **fait : supprimé** (code mort, jamais câblé, pointait vers l'ancien système `CanAdvanceState`)
 - **Nettoyer `docs/drafts/`** : `OMTK_ReadyAction_DRAFT.c` et `OMTK_WarmUpComponent_DRAFT.c` documentent l'approche `CanAdvanceState` abandonnée — à retirer du dépôt, ce récapitulatif couvre déjà l'historique utile (§7).
 - Reconstituer proprement le GameMode final sur une base `GameModeSF` héritée, sans les résidus de manipulations de test.
 - Reprendre `CanAdvanceState()` séparément si on souhaite un jour relier le minuteur OMTK à la vraie machine à états du GameMode plutôt qu'à un booléen indépendant.
