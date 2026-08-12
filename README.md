@@ -59,7 +59,7 @@ modules sur onze** demandent réellement d'écrire du code.
 | `radio_settings` | Config — fréquences et clés dans la config de faction | Doc seulement, rien vérifié en jeu | [Récapitulatif](docs/OMTK_Radio_Reforger_Recap.md) |
 | `radio_lock` | Déjà natif — chiffrement par faction au spawn | Doc seulement, rien vérifié en jeu | [Récapitulatif](docs/OMTK_Radio_Reforger_Recap.md) |
 | `test_mode` | Déjà natif — Debug Areas, exécutables Diag, Remote Console | Doc seulement, procédure à écrire | [Récapitulatif](docs/OMTK_TestMode_Reforger_Recap.md) |
-| `ui` (panneau admin) | À déterminer — probablement en grande partie remplacé par Game Master natif | Doc seulement, rien construit | [Récapitulatif](docs/OMTK_UI_AdminPanel_Reforger_Recap.md) |
+| `ui` (panneau admin) | À déterminer — probablement en grande partie remplacé par Game Master natif | **En cours** — bouton End Warm-up construit (compilé, visibilité admin non testable hors serveur réel) | [Récapitulatif](docs/OMTK_UI_AdminPanel_Reforger_Recap.md) |
 
 Les outils compagnons disparaissent : `omtk-groups` devient de l'héritage de prefabs, `OMTK-loadouts`
 devient `FillInitialStorages`. Plus rien à maintenir à côté du mod.
@@ -155,8 +155,10 @@ confirmés en jeu. Rien de bloquant identifié à ce jour au-delà des points li
   plus large).
 - **`test_mode`** — pas un module à coder : écrire la procédure de test standard (Debug Areas,
   exécutables Diag, Remote Console) une fois éprouvée en conditions réelles
-- **`ui` (panneau admin)** — vérifier ce que couvre déjà Game Master nativement avant d'écrire un
-  seul widget custom ; trouver le composant de gestion des rôles/permissions admin ; trancher le
+- **`ui` (panneau admin)** — permissions résolues (`SCR_PlayerListedAdminManagerComponent`, voir
+  `warm_up`) ; bouton End Warm-up construit et compilé. Reste : vérifier ce que couvre déjà Game
+  Master nativement avant d'écrire d'autres widgets custom ; construire un vrai panneau (Widgets)
+  pour les boutons restants (téléportation, soin, bascules collectives, export AAR) ; trancher le
   sort de "Fix uniform Bug" (probablement obsolète) et du raccourci distance d'affichage
 
 ### Modules jamais audités
