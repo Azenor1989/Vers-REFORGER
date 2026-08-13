@@ -58,7 +58,28 @@ Contrairement aux modules précédents, celui-ci est majoritairement une questio
 
 ---
 
-## 8. Ressources de référence
+## 8. Nouveau besoin identifié — effacement/reset de radio capturée
+
+Absent d'OMTK d'origine, identifié séparément avec l'OFCRA. Le chiffrement natif par faction
+(§3) protège tant que la radio reste en possession de son camp — mais si elle est **capturée**
+physiquement sur un ennemi mort, la mécanique de "codebook" pourrait permettre à l'ennemi de
+l'exploiter (voir la limite déjà notée en §3).
+
+**Besoin** : la squad qui perd sa radio doit pouvoir l'effacer avant que l'ennemi ne puisse
+l'exploiter.
+
+**Contrainte de conception, précisée par l'OFCRA** : ce n'est **pas** un effacement à distance —
+un joueur vivant ne doit pas pouvoir vider une radio à 10 km. Il faut **s'approcher physiquement
+de la radio elle-même** pour déclencher l'action. Même patron que le bouton "End Warm-up" déjà
+construit et testé (voir récap [`warm_up`](OMTK_WarmUp_Reforger_Recap.md) §3.6) :
+`ActionsManagerComponent` + `Action Context` sur l'entité radio, portée d'interaction de
+quelques mètres — pas un RPC déclenchable depuis n'importe où.
+
+**Pas prioritaire** — à garder sous le coude, surtout si l'implémentation s'avère lourde.
+
+---
+
+## 9. Ressources de référence
 
 | Sujet | Lien |
 |---|---|
@@ -71,12 +92,13 @@ Contrairement aux modules précédents, celui-ci est majoritairement une questio
 
 ---
 
-## 9. Ce qui reste à valider en pratique (Workbench requis)
+## 10. Ce qui reste à valider en pratique (Workbench requis)
 
 - Confirmer en jeu le comportement exact de la capture de radio ennemie (la mécanique de "codebook" reste peu documentée officiellement).
 - Vérifier si le respawn sur radio manpack est paramétrable pour matcher exactement les règles de spawn actuelles de l'OFCRA, ou s'il faut un `SCR_RespawnSystemComponent` custom en complément.
 - Tester si le système natif suffit tel quel pour l'usage OFCRA, avant d'envisager un des mods communautaires listés en §6.
+- Module de reset radio (§8) : vérifier que `ActionsManagerComponent` fonctionne sur une entité radio comme sur un véhicule, et identifier l'appel technique pour réinitialiser/effacer la clé côté `SCR_RadioComponent`.
 
 ---
 
-*Document généré à partir des recherches menées en session — à vérifier et corriger contre le comportement réel du Workbench (voir §9).*
+*Document généré à partir des recherches menées en session — à vérifier et corriger contre le comportement réel du Workbench (voir §10).*

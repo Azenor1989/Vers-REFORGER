@@ -75,9 +75,17 @@ Ce qui existe côté natif :
 - **Game Master** a une action "Spectate" (clic droit sur un joueur) — outil admin pour observer
   à la demande, pas un mode que le joueur mort obtient automatiquement à sa mort.
 - **`SCR_PlayerController.SetPossessedEntity(IEntity)`** — piste pour s'attacher à un joueur
-  vivant : *"Possessed entity is controlled by player, but it's not the player."* Le terme
-  "controlled" laisse penser que ça transfère peut-être le contrôle plutôt que juste la vue
-  caméra — comportement exact **non confirmé**, à tester en jeu avant de s'appuyer dessus.
+  vivant : *"Possessed entity is controlled by player, but it's not the player."* **Testé en jeu,
+  résultat négatif** : appelé depuis `OMTK_WarmupZoneComponent` (composant serveur) sur un
+  `PlayerController` récupéré via `PlayerManager.GetPlayerController(playerId)`, aucun effet
+  visuel observé — la vue est restée sur la caméra libre du test précédent, sans basculer vers
+  la cible. L'appel s'est exécuté sans erreur (confirmé par log), donc ce n'est pas un problème
+  de nom de méthode. Piste d'explication, non confirmée : l'appel doit peut-être se faire
+  **côté client**, pas depuis le serveur — GRAD Spectator relaie explicitement son équivalent via
+  un RPC plutôt que d'appeler directement depuis le serveur, avec ce commentaire de l'auteur :
+  *"Perhaps player controller is not replicated from server to every client but only to the
+  needed client."* À retester en appelant depuis un contexte client (ex. une `ScriptedUserAction`,
+  comme pour le trigger admin) plutôt que depuis `OnGameModeStart`.
 
 Rien d'autre de natif et automatique. Aucun équivalent à EG Spectator livré par Bohemia à ce jour.
 
@@ -100,11 +108,13 @@ Couleur en `0xAARRGGBB`. Deux modes de rendu selon le besoin :
 - **persistant** — garder la référence, la trajectoire reste jusqu'à libération. Plus adapté à un
   historique des N derniers tirs, comme le fait `BIS_fnc_traceBullets` avec ses 20 trajectoires.
 
-**⚠️ Inconnue bloquante à lever en priorité** : `Shape` est classé dans les *"Debug utilities"*, et
-la doc Bohemia 1.1 précise que les options développeur ne sont actives que sur les exécutables
-**Diag**. Risque réel que ces formes **ne s'affichent pas** dans un client de production normal —
-auquel cas l'affichage direct pour le spectateur tombe, et il ne resterait que la voie AAR. À
-tester avant tout développement sur ce point.
+**⚠️ Inconnue confirmée en jeu — RÉSOLUE** : `Shape` était bien la seule inconnue restée en suspens.
+Concernant le prefab caméra (§4.1), **testé en Workbench, confirmé** : spawner
+`ManualCameraSpectate.et` via `GetGame().SpawnEntityPrefab(...)` suffit à lui seul — la vue bascule
+automatiquement vers cette caméra libre, détachée du personnage, **sans** appel supplémentaire
+(pas de `SetPossessedEntity` ni équivalent nécessaire). Ça résout l'inconnue que l'auteur de GRAD
+Spectator lui-même n'avait pas éclaircie. Reste à tester si `Shape` (§3bis, tracé de projectiles)
+s'affiche bien dans ce même contexte non-Diag — pas encore vérifié séparément.
 
 **Deuxième inconnue** : comment intercepter un tir pour récupérer origine, direction et point
 d'impact. Pistes non confirmées : un événement sur `BaseWeaponComponent`, ou le suivi de l'entité
@@ -235,10 +245,13 @@ du projet.
 
 ## 6. Ce qui reste à faire
 
-- Tester en Workbench le prefab `ManualCameraSpectate.et` (et les deux autres, par comparaison)
-  pour confirmer qu'il donne une caméra libre exploitable hors éditeur.
-- Tester `SetPossessedEntity()` sur un joueur vivant : transfère-t-il le contrôle, ou seulement
-  la vue caméra ? Déterminant pour savoir s'il convient au suivi de joueur.
+- ~~Tester en Workbench le prefab `ManualCameraSpectate.et`~~ — **fait, confirmé en jeu** : la
+  vue bascule automatiquement vers une caméra libre à l'apparition de l'entité, sans appel
+  supplémentaire. Reste à tester les deux autres prefabs (`ManualCameraStrategy`,
+  `ManualCameraPhoto`) par comparaison, et le déplacement libre (vitesse, contrôles).
+- **`SetPossessedEntity()` — retesté depuis un contexte client** (`ScriptedUserAction`, pas
+  `OnGameModeStart`) : premier essai depuis le serveur sans effet visuel observé (voir §3). À
+  refaire avec un appel côté client avant de conclure que la piste est morte.
 - Construire le suivi d'unité : sélection, bascule 1PP/3PP, et l'équivalent de la carte custom
   Arma 3 pour changer d'unité suivie (aucun précédent réutilisable trouvé, ni natif ni communautaire).
 - Décider du sort des modes de vision (NV/thermique en 1PP) et du mode lampe torche — présents
