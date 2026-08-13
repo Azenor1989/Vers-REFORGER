@@ -60,6 +60,7 @@ modules sur onze** demandent réellement d'écrire du code.
 | `radio_lock` | Déjà natif — chiffrement par faction au spawn | Doc seulement, rien vérifié en jeu | [Récapitulatif](docs/OMTK_Radio_Reforger_Recap.md) |
 | `test_mode` | Déjà natif — Debug Areas, exécutables Diag, Remote Console | Doc seulement, procédure à écrire | [Récapitulatif](docs/OMTK_TestMode_Reforger_Recap.md) |
 | `ui` (panneau admin) | À déterminer — probablement en grande partie remplacé par Game Master natif | **En cours** — bouton End Warm-up construit (compilé, visibilité admin non testable hors serveur réel) | [Récapitulatif](docs/OMTK_UI_AdminPanel_Reforger_Recap.md) |
+| Mode spectateur | À déterminer — dépendance externe (GRAD Spectator) ou réimplémentation | Doc seulement, décision à prendre avec l'OFCRA | [Récapitulatif](docs/OMTK_SpectatorMode_Reforger_Recap.md) |
 
 Les outils compagnons disparaissent : `omtk-groups` devient de l'héritage de prefabs, `OMTK-loadouts`
 devient `FillInitialStorages`. Plus rien à maintenir à côté du mod.
@@ -69,6 +70,14 @@ récapitulatif `ui`, §7) : `respawn_mode`, `view_distance`, `zeus_admins`, `ram
 `uniform_lock`, `tactical_paradrop`, `vehicles_thermalimaging`, `map_exploration`, `3rd-parties`.
 Plusieurs recoupent probablement déjà des modules documentés (voir tableau ci-dessus et récap `ui`,
 §4.3 et §7) — à examiner avant de considérer l'audit terminé.
+
+**Mode spectateur** — découvert séparément, absent de la liste ci-dessus car il n'a pas son propre
+dossier `omtk/<module>/` : câblé directement dans les scripts racine de la mission
+(`description.ext`, `onPlayerKilled.sqf`, `onPlayerRespawn.sqf`), avec son propre paramètre
+`OMTK_MODULE_SPECTATOR` (all/team), via l'addon tiers **EG Spectator Mode**. Directement lié à la
+règle « aucun respawn » de l'OFCRA. Spec confirmée : caméra libre façon « mouette » OFP, pas une
+possession d'IA — voir son [récapitulatif dédié](docs/OMTK_SpectatorMode_Reforger_Recap.md) pour
+le détail et la décision à trancher (dépendance à GRAD Spectator vs réimplémentation).
 
 ---
 
@@ -165,7 +174,9 @@ confirmés en jeu. Rien de bloquant identifié à ce jour au-delà des points li
 
 `respawn_mode`, `view_distance`, `zeus_admins`, `rambo_warn`, `uniform_lock`, `tactical_paradrop`,
 `vehicles_thermalimaging`, `map_exploration`, `3rd-parties` — à confronter au dépôt source OMTK
-avant de considérer l'audit terminé.
+avant de considérer l'audit terminé. S'y ajoute le **mode spectateur** (`OMTK_MODULE_SPECTATOR`,
+addon tiers EG Spectator Mode) — hors de la structure habituelle des dossiers `omtk/`, découvert
+séparément, directement lié à la règle « aucun respawn » de l'OFCRA.
 
 ### Nouvelles strates de statistiques (pas dans OMTK d'origine)
 
