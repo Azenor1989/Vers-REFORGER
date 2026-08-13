@@ -155,9 +155,11 @@ confirmés en jeu. Rien de bloquant identifié à ce jour au-delà des points li
   (IA combattante d'appoint) reste hors périmètre.
 - **`radio_lock` / `radio_settings`** — vérifier en jeu le chiffrement par faction natif ; **ajouter
   un module d'effacement/reset de radio** — si une radio est perdue au profit de l'ennemi, la squad
-  qui l'a perdue doit pouvoir la vider à distance (bouton ou autre) pour empêcher l'ennemi de
-  l'exploiter malgré le chiffrement. À garder sous le coude, surtout si ça demande du travail —
-  pas prioritaire.
+  qui l'a perdue doit pouvoir la vider **en s'approchant physiquement de la radio** (interaction de
+  proximité, même patron que le bouton End Warm-up — `ActionsManagerComponent`/`Action Context` sur
+  l'entité radio), **pas à distance** — ça empêcherait l'ennemi de l'exploiter malgré le chiffrement,
+  sans permettre un effacement depuis n'importe où sur la carte. À garder sous le coude, surtout si
+  ça demande du travail — pas prioritaire.
 - **`vehicles_cargos`** — le chargement initial (`FillInitialStorages`) est à la charge du créateur
   de mission, pas un besoin toolkit. En revanche, il faut une **capacité de bridage des véhicules**
   (détail à définir avec l'OFCRA — cohérente avec l'immobilisation en warm-up ci-dessus, probablement
