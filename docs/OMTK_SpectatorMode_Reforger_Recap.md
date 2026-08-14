@@ -134,10 +134,51 @@ indispensable.
 **À vérifier encore** :
 - si l'on déplace manuellement la caméra, reste-t-elle attachée, ou le déplacement la détache-t-il
   de fait ?
-- `SetInputEnabled(false)` est probablement la clé d'un suivi verrouillé (1PP/3PP) par opposition
-  au vol libre — non testé.
 - le comportement avec un **vrai joueur** en mouvement (animation de marche réelle) plutôt qu'une
   cible téléportée par script.
+
+### 3quater. Réglage fin du suivi via les composants de la caméra — VALIDÉ EN JEU
+
+`SCR_ManualCamera` n'est pas monolithique : c'est un assemblage de **31 composants**, chacun
+gérant une fonction (déplacement, rotation, zoom, orbite…). La liste exacte est visible dans le
+prefab `ManualCameraSpectate.et` → Object Properties → section **"Manual Camera Components"**
+(elle n'apparaît **pas** dans la liste de composants d'entité classique en haut du panneau —
+piège à connaître).
+
+Chacun s'active/désactive individuellement, `SetEnabled()`/`IsEnabled()` étant définis sur la
+classe parente `SCR_BaseManualCameraComponent` :
+
+```cpp
+SCR_BaseManualCameraComponent comp = cam.FindCameraComponent(SCR_MoveManualCameraComponent);
+comp.SetEnabled(false);
+```
+
+**Composants utiles pour le mode spectateur**, tous confirmés présents dans le prefab :
+
+| Composant | Rôle | Réglage retenu pour le suivi |
+|---|---|---|
+| `SCR_MoveManualCameraComponent` | Déplacement libre | **désactivé** — verrouille la caméra sur la cible |
+| `SCR_MoveRelativeManualCameraComponent` | Déplacement relatif | **désactivé** — idem |
+| `SCR_RotateManualCameraComponent` | Rotation de la vue | **laissé actif** — le spectateur regarde autour |
+| `SCR_OrbitingManualCameraComponent` | Orbite autour d'une cible | **activé** — la caméra tourne autour du joueur suivi en le gardant au centre |
+| `SCR_ZoomManualCameraComponent` | Zoom | **activé** |
+| `SCR_AttachManualCameraComponent` | Support de l'attachement (`AttachTo`) | actif par défaut |
+
+**Résultat confirmé en jeu** : caméra solidaire de la cible en mouvement, impossible de la déplacer
+librement, rotation de la vue conservée, orbite autour du joueur fonctionnelle, zoom disponible.
+C'est le comportement de suivi attendu pour le mode spectateur.
+
+**Approche écartée** : `SetInputEnabled(false)` — coupe **tout** l'input, pivot compris, laissant
+une caméra totalement figée. Trop grossier ; la désactivation ciblée par composant est la bonne voie.
+
+**Positionnement de la caméra** — le décalage est appliqué au spawn, avant `AttachTo()`, et
+détermine la perspective. Attention aux axes Enfusion : **Y = hauteur**, X et Z = les deux axes
+horizontaux. Un décalage sur X place la caméra sur le côté ; le recul « derrière » se fait sur Z
+(pour une cible se déplaçant vers l'est).
+
+**Limite connue** : ce décalage est fixe **dans le repère du monde**, pas relatif à l'orientation
+de la cible. Un vrai « par-dessus l'épaule » qui reste derrière le joueur quand il tourne
+demanderait de calculer le décalage depuis l'orientation de la cible — non fait.
 
 ### 3bis. Tracé de projectiles — équivalent trouvé, avec une inconnue bloquante
 
@@ -270,8 +311,53 @@ faisable sur Reforger**. Mais inexploitable ici :
 
 ---
 
-## 5. Analyse — dépendre ou réimplémenter
+### 4bis. Déclenchement à la mort — construit, partiellement fonctionnel
 
+`OMTK_SpectatorComponent.c` (composant sur le GameMode) :
+
+- **Hook de mort** : `OnPlayerKilled(SCR_InstigatorContextData)` — même point d'accroche que
+  `OMTK_KillLoggerComponent`, déjà éprouvé. **Fonctionne** : la mort est bien détectée côté serveur.
+- **Création de la caméra** : **fonctionne** — à la mort, la caméra spectateur apparaît bien.
+
+**⚠ Problème 1 — le RPC serveur → client ne se propage pas.** `Rpc(RpcDo_EnableSpectator, victimId)`
+depuis le composant : le log de départ apparaît, mais **aucune trace de réception**, même en solo
+Workbench (log placé avant tout filtre pour l'écarter comme cause). Cause non élucidée —
+probablement un problème de routage/réplication du composant. **Contourné en appel direct**, ce qui
+suffit en solo (serveur = client) mais **ne fonctionnera pas en session réseau réelle** : le serveur
+créerait la caméra chez lui, pas chez le joueur mort. À résoudre avant tout usage multijoueur.
+
+**⚠ Problème 2 — le cycle de respawn natif n'est pas coupé.** Testé en jeu : après la mort, le
+parcours est mort → écran noir → menu de déploiement → clic Deploy → **un nouveau personnage
+jouable apparaît**, alors que le joueur est en caméra. Deux corps au sol et un personnage vivant
+observés simultanément — exactement ce que la règle « aucun respawn » interdit.
+
+**Approches testées et ÉCARTÉES** — trois tentatives, aucune viable :
+
+1. **`modded class SCR_MenuSpawnLogic`, `OnPlayerEntityLost_S()` sans appeler `super`** (le patron
+   de GRAD Spectator). Résultat en jeu : **le joueur ne peut plus apparaître du tout**, la partie
+   ne démarre même pas — le spawn **initial** passe par le même chemin, pas seulement le respawn
+   après mort.
+2. **`CanPlayerSpawn_S(int playerId)`** sur `SCR_RespawnSystemComponent`, puis sur
+   `SCR_MenuSpawnLogic` : n'existe sur ni l'une ni l'autre (erreur de compilation *"marked as
+   override but does not exist"*).
+3. **`modded class SCR_BaseGameMode` avec la vraie signature de `CanPlayerSpawn_S`**, trouvée par
+   recherche de symbole (`SCR_BaseGameMode.c` ligne 1574) :
+   ```cpp
+   bool CanPlayerSpawn_S(SCR_SpawnRequestComponent requestComponent, SCR_SpawnHandlerComponent handlerComponent,
+                         SCR_SpawnData data, out SCR_ESpawnResult result = SCR_ESpawnResult.SPAWN_NOT_ALLOWED)
+   ```
+   Résultat : **crash du Workbench** (*Access violation. Illegal read*). Modder une méthode aussi
+   centrale du cycle de spawn, avec un paramètre `out`, fait planter le moteur plutôt que remonter
+   une erreur propre.
+
+**Conclusion** : bloquer le respawn depuis l'intérieur du cycle de spawn natif est trop invasif —
+deux tentatives sur trois ont cassé le jeu. Piste plus sûre à explorer : empêcher le joueur mort
+d'**accéder au menu de déploiement** (ou fermer ce menu automatiquement côté client), sans jamais
+toucher au cycle de spawn du moteur. Moins élégant, mais sans risque de crash.
+
+---
+
+## 5. Analyse — dépendre ou réimplémenter
 Le tableau après lecture du code :
 
 | Élément | Verdict |
@@ -301,10 +387,10 @@ du projet.
   `ManualCameraPhoto`) par comparaison, et le déplacement libre (vitesse, contrôles).
 - ~~`SetPossessedEntity()`~~ — **fait, écarté** : transfère le contrôle complet (déplacement inclus),
   pas juste la vue — inutilisable pour suivre un joueur vivant sans lui voler le contrôle.
-- **`SCR_ManualCamera.AttachTo()` — piste retenue, largement validée (§3ter)** : attachement sans
-  possession **et suivi dynamique d'une cible en mouvement** confirmés en jeu, en 3ème personne.
-  Reste à vérifier le comportement en cas de déplacement manuel de la caméra, `SetInputEnabled(false)`
-  pour un suivi verrouillé, et le test avec un vrai joueur (pas une cible téléportée).
+- **`SCR_ManualCamera.AttachTo()` + réglage par composants — VALIDÉ (§3ter, §3quater)** : suivi de
+  joueur complet et fonctionnel en jeu — caméra solidaire de la cible, rotation libre, orbite autour
+  du joueur, zoom. Reste à vérifier : le comportement avec un vrai joueur (pas une cible téléportée),
+  et un décalage relatif à l'orientation de la cible (vrai « par-dessus l'épaule »).
 - **1ère personne — en attente** (§3ter) : décalage fixe insuffisant (on voit l'intérieur du crâne),
   `TrySwitchToControlledEntityCamera()` inutilisable (pas de paramètre de cible). Seule piste
   restante : suivi de l'os de la tête frame par frame. À reprendre uniquement si l'OFCRA le juge
@@ -319,6 +405,12 @@ du projet.
   `kill_logger`.
 - Réintégrer une garde anti-déconnexion (cf. §4.1) dans toute logique branchée sur
   `OnPlayerEntityLost_S`.
+- **Déclenchement à la mort (§4bis)** — construit, caméra créée à la mort. Deux problèmes ouverts :
+  (a) le RPC serveur → client ne se propage pas (contourné en appel direct, valable en solo
+  uniquement — bloquant pour le multijoueur) ; (b) le cycle de respawn natif n'est pas coupé, un
+  nouveau personnage apparaît quand même. **Trois approches testées et écartées** pour (b), dont
+  une qui empêchait tout spawn et une qui faisait crasher le Workbench — voir §4bis. Prochaine
+  piste : bloquer l'accès au menu de déploiement plutôt que le cycle de spawn lui-même.
 - Trancher le déclenchement : caméra seule sans respawn de corps (approche à privilégier,
   fidèle à la règle no-respawn) plutôt que le respawn+caméra de GRAD Spectator.
 - Vérifier la cohabitation avec `kill_logger` et `score_board` une fois le mécanisme choisi.
