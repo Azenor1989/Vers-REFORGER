@@ -74,20 +74,70 @@ pas une fonctionnalité native du jeu de base.
 Ce qui existe côté natif :
 - **Game Master** a une action "Spectate" (clic droit sur un joueur) — outil admin pour observer
   à la demande, pas un mode que le joueur mort obtient automatiquement à sa mort.
-- **`SCR_PlayerController.SetPossessedEntity(IEntity)`** — piste pour s'attacher à un joueur
-  vivant : *"Possessed entity is controlled by player, but it's not the player."* **Testé en jeu,
-  résultat négatif** : appelé depuis `OMTK_WarmupZoneComponent` (composant serveur) sur un
-  `PlayerController` récupéré via `PlayerManager.GetPlayerController(playerId)`, aucun effet
-  visuel observé — la vue est restée sur la caméra libre du test précédent, sans basculer vers
-  la cible. L'appel s'est exécuté sans erreur (confirmé par log), donc ce n'est pas un problème
-  de nom de méthode. Piste d'explication, non confirmée : l'appel doit peut-être se faire
-  **côté client**, pas depuis le serveur — GRAD Spectator relaie explicitement son équivalent via
-  un RPC plutôt que d'appeler directement depuis le serveur, avec ce commentaire de l'auteur :
-  *"Perhaps player controller is not replicated from server to every client but only to the
-  needed client."* À retester en appelant depuis un contexte client (ex. une `ScriptedUserAction`,
-  comme pour le trigger admin) plutôt que depuis `OnGameModeStart`.
+- **`SCR_PlayerController.SetPossessedEntity(IEntity)`** — **testé en jeu, conclusion négative
+  définitive.** Premier essai depuis `OMTK_WarmupZoneComponent` (composant serveur, recherche par
+  ID via `PlayerManager.GetPlayerController(id)`) : aucun effet visuel. Deuxième essai, seule
+  variable changée — `GetGame().GetPlayerController()` **sans argument** (contrôleur local)
+  plutôt qu'une recherche serveur par ID : **effet confirmé**, bascule en vue 1ère personne sur
+  la cible. Mais le comportement observé disqualifie ce mécanisme pour l'usage visé : c'est une
+  **vraie prise de contrôle**, pas juste un changement de vue — le joueur peut déplacer l'entité
+  ciblée, et son propre personnage reste planté sur place, sans personne aux commandes. Pour un
+  spectateur qui doit observer un **joueur encore vivant** sans lui voler le contrôle, ce
+  mécanisme est **inutilisable tel quel**. Piste écartée pour le suivi de joueur ; à chercher
+  ailleurs (attachement de caméra à l'entité cible, sans transfert de possession — piste non
+  explorée).
 
 Rien d'autre de natif et automatique. Aucun équivalent à EG Spectator livré par Bohemia à ce jour.
+
+### 3ter. Suivi de joueur — piste viable trouvée : `SCR_ManualCamera.AttachTo()`
+
+`SCR_ManualCamera` (la classe du prefab caméra déjà validé, §4.1) expose nativement, confirmé
+dans la doc de la branche 1.7.0.54 :
+
+```cpp
+void AttachTo(IEntity parent)   // Attach camera to an entity
+void Detach()                    // Detach camera from its parent entity
+void SetInputEnabled(bool)       // Enable/disable manual input
+void Terminate()                 // Destroy the camera proprement (préférable à delete)
+```
+
+**Testé en jeu, résultat positif** — remplace avantageusement `SetPossessedEntity` (écarté, §3) :
+- l'appel compile et s'exécute (la doc marque ces méthodes `protected`, mais l'appel externe
+  passe sans erreur — réserve levée) ;
+- la caméra se positionne relativement à la cible (décalage choisi au spawn, ici +3 m en hauteur)
+  **sans prise de possession** : le joueur suivi garde entièrement le contrôle de son personnage ;
+- les contrôles caméra restent actifs : pivot libre, et déplacement possible ;
+- **l'attachement est dynamique** : testé avec une cible déplacée par script (`SetOrigin` répété,
+  2 m/s), la caméra suit le mouvement au lieu de rester figée sur la position d'attachement.
+
+Le **décalage au spawn détermine la perspective** : avec +3 m en hauteur, on obtient une vue de
+type 3ème personne, propre et exploitable.
+
+**1ère personne — testée, insuffisante, mise en attente.** Attacher à +1,7 m (hauteur des yeux)
+fonctionne techniquement mais ne donne pas un rendu correct : la caméra est décalée par rapport
+au crâne et on voit l'intérieur du modèle (globes oculaires). Cause de fond : la vraie vue joueur
+suit la **tête animée** (respiration, visée, recul, secousses de course), alors qu'un décalage
+fixe ne suit que l'origine de l'entité.
+
+Deux pistes écartées ou coûteuses :
+- `TrySwitchToControlledEntityCamera()` — **impossible** : la signature ne prend **aucun
+  paramètre**, elle ne peut basculer que vers la caméra de sa propre entité contrôlée, jamais
+  vers celle d'un autre joueur.
+- **Suivi de l'os de la tête** — piste restante et probablement la bonne, mais `AttachTo()` ne
+  prend qu'une entité, pas un os : il faudrait recalculer la position de la caméra à chaque frame
+  depuis la transformation de l'os via le composant d'animation. Non exploré, fluidité non garantie.
+
+**Décision : 1PP en attente.** La 3ème personne couvre l'essentiel du besoin spectateur (suivre un
+joueur, voir ce qu'il fait) et fonctionne proprement. À reprendre seulement si l'OFCRA juge la 1PP
+indispensable.
+
+**À vérifier encore** :
+- si l'on déplace manuellement la caméra, reste-t-elle attachée, ou le déplacement la détache-t-il
+  de fait ?
+- `SetInputEnabled(false)` est probablement la clé d'un suivi verrouillé (1PP/3PP) par opposition
+  au vol libre — non testé.
+- le comportement avec un **vrai joueur** en mouvement (animation de marche réelle) plutôt qu'une
+  cible téléportée par script.
 
 ### 3bis. Tracé de projectiles — équivalent trouvé, avec une inconnue bloquante
 
@@ -249,9 +299,16 @@ du projet.
   vue bascule automatiquement vers une caméra libre à l'apparition de l'entité, sans appel
   supplémentaire. Reste à tester les deux autres prefabs (`ManualCameraStrategy`,
   `ManualCameraPhoto`) par comparaison, et le déplacement libre (vitesse, contrôles).
-- **`SetPossessedEntity()` — retesté depuis un contexte client** (`ScriptedUserAction`, pas
-  `OnGameModeStart`) : premier essai depuis le serveur sans effet visuel observé (voir §3). À
-  refaire avec un appel côté client avant de conclure que la piste est morte.
+- ~~`SetPossessedEntity()`~~ — **fait, écarté** : transfère le contrôle complet (déplacement inclus),
+  pas juste la vue — inutilisable pour suivre un joueur vivant sans lui voler le contrôle.
+- **`SCR_ManualCamera.AttachTo()` — piste retenue, largement validée (§3ter)** : attachement sans
+  possession **et suivi dynamique d'une cible en mouvement** confirmés en jeu, en 3ème personne.
+  Reste à vérifier le comportement en cas de déplacement manuel de la caméra, `SetInputEnabled(false)`
+  pour un suivi verrouillé, et le test avec un vrai joueur (pas une cible téléportée).
+- **1ère personne — en attente** (§3ter) : décalage fixe insuffisant (on voit l'intérieur du crâne),
+  `TrySwitchToControlledEntityCamera()` inutilisable (pas de paramètre de cible). Seule piste
+  restante : suivi de l'os de la tête frame par frame. À reprendre uniquement si l'OFCRA le juge
+  indispensable.
 - Construire le suivi d'unité : sélection, bascule 1PP/3PP, et l'équivalent de la carte custom
   Arma 3 pour changer d'unité suivie (aucun précédent réutilisable trouvé, ni natif ni communautaire).
 - Décider du sort des modes de vision (NV/thermique en 1PP) et du mode lampe torche — présents
