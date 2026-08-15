@@ -8,9 +8,11 @@
 
 `difficulty_check` et `IA_skills` gèrent aujourd'hui, en SQF, le niveau de compétence des unités IA. Sur Reforger, ce rôle est couvert par un composant natif déjà bien plus modulaire qu'un simple curseur de skill.
 
-**Correction après lecture du vrai code source** (`github.com/ofcrav2/omtk/tree/master/omtk/ia_manager`, jamais audité jusqu'ici) : il existe un **second usage de l'IA**, distinct de celui documenté au §9, et le module `ia_manager` lui est entièrement dédié. Les deux usages coexistent dans OMTK — voir §9 pour le premier, §9bis pour le second.
-
-**Tension résolue** : seul l'usage §9 (IA d'objectif, non combattante) est retenu pour l'OFCRA. L'usage §9bis (`ia_manager`, IA combattante d'appoint pour équilibrer les effectifs) est **hors périmètre**, confirmé — voir §9bis pour le détail conservé à titre de référence.
+**Correction après lecture du vrai code source** (`github.com/ofcrav2/omtk/tree/master/omtk/ia_manager`) :
+la « tension » que ce document signalait entre `ia_manager` et la règle « aucune IA combattante »
+**n'existait pas** — elle venait d'une mauvaise lecture. `ia_manager` ne déploie aucune IA de
+renfort : il bride les compétences de toutes les IA et neutralise les slots jouables vides. Détail
+complet en §9bis.
 
 ---
 
@@ -92,9 +94,42 @@ Le reste (**Enable Movement**, **Enable Looking**, **Enable Communication**, **E
 
 ---
 
-## 9bis. Ancien contexte — usage combattant d'appoint (`ia_manager`), HORS PÉRIMÈTRE
+## 9bis. `ia_manager` — ce qu'il fait réellement (code source lu)
 
-Conservé pour référence uniquement. Ce module documentait une IA combattante de complément pour équilibrer des effectifs déséquilibrés, avec des valeurs de compétence volontairement dégradées et un mécanisme de gel pendant le warm-up, miroir de celui construit pour les joueurs humains. **Décision : non retenu.** L'OFCRA n'utilise que l'usage non combattant (§9).
+**Correction d'une lecture antérieure erronée.** Ce document affirmait qu'`ia_manager` servait à
+déployer une IA **combattante d'appoint** pour équilibrer des effectifs déséquilibrés. Lecture du
+vrai code (`omtk/ia_manager/main.sqf`) : c'est faux. Le module fait deux choses, aucune n'étant
+du renfort combattant.
+
+**1. Bridage global des compétences IA** — appliqué à *toutes* les unités au démarrage :
+
+```sqf
+_x setskill ["aimingAccuracy",0.1];  _x setskill ["aimingShake",0.1];
+_x setskill ["aimingSpeed",0.1];     _x setskill ["endurance",0.2];
+_x setskill ["spotDistance",0.3];    _x setskill ["spotTime",0.4];
+_x setskill ["courage",0.4];         _x setskill ["reloadSpeed",0.4];
+_x setskill ["commanding",0.2];      _x setskill ["general",0.2];
+```
+
+C'est en réalité ce que le README d'OMTK appelle `IA_skill` (« lower IA skill and prevent from
+backfire ») — le nom de dossier et le nom de module ne correspondent pas.
+
+**2. Neutralisation des slots jouables vides** — si `OMTK_MODULE_DISABLE_PLAYABLE_AI` est actif,
+toutes les `playableUnits` non occupées par un joueur sont désactivées en profondeur :
+`disableAI` sur AUTOTARGET/TARGET/FSM/MOVE, `stop true`, comportement CARELESS, `allowFleeing 0`,
+muettes (`setSpeaker "NoVoice"`), et **`allowDamage false`** si ce n'est pas un joueur. Un
+`HandleDisconnect` réapplique le traitement quand un joueur quitte, pour que son personnage ne
+redevienne pas une IA active.
+
+Côté client, `player addRating 1000000` évite le statut de renégat.
+
+**Conséquence pour le portage** : il n'y a jamais eu d'IA combattante d'appoint dans OMTK — la
+« tension » que ce document signalait avec la règle « aucune IA combattante » n'existait pas.
+Les deux fonctions réelles se traduisent différemment sur Reforger :
+- le bridage de compétences → `SCR_AIConfigComponent` (§9, testé en jeu) ;
+- la neutralisation des slots vides → sans objet a priori, la gestion des slots non pourvus étant
+  différente sur Reforger (à confirmer) ; l'invulnérabilité des IA en zone est déjà couverte par
+  le récap [`warm_up`](OMTK_WarmUp_Reforger_Recap.md) §3.8.
 
 ---
 
