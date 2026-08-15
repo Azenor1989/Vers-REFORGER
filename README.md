@@ -53,9 +53,12 @@ modules sur onze** demandent réellement d'écrire du code.
 | `warm_up` | Code — minuteur autonome, zones par faction, invulnérabilité, trigger admin, véhicules, IA | **Testé en jeu** | [Récapitulatif](docs/OMTK_WarmUp_Reforger_Recap.md) |
 | `kill_logger` | Code — Instigator + écriture FileIO | **Testé en jeu** | [Récapitulatif](docs/OMTK_KillLogger_Reforger_Recap.md) |
 | `infantry_loadouts` | Config — factions et classes par héritage de prefabs | **Abandonné** — pas nécessaire, RHS fournit déjà les factions | [Récapitulatif](docs/OMTK_Loadouts_Reforger_Recap.md) |
-| `dynamic_startup` | Config — Scenario Framework + `SCR_Task` | **Pas un module toolkit** — à la charge du créateur de mission chaque semaine, via le World Editor natif | [Récapitulatif](docs/OMTK_DynamicStartup_Reforger_Recap.md) |
+| `dynamic_startup` | Config — Scenario Framework + `SCR_Task` | **En standby** — décision OFCRA | [Récapitulatif](docs/OMTK_DynamicStartup_Reforger_Recap.md) |
 | `vehicles_cargos` | Config — bridage des véhicules (chargement initial à la charge du créateur de mission) | Doc seulement, rien construit — portée réduite | [Récapitulatif](docs/OMTK_VehiclesCargos_Reforger_Recap.md) |
-| `difficulty_check` · `IA_skills` | Config — `SCR_AIConfigComponent`, IA d'objectif uniquement (pas de combattante d'appoint) | **Testé en jeu** | [Récapitulatif](docs/OMTK_IASkills_Reforger_Recap.md) |
+| `IA_skills` | Config — `SCR_AIConfigComponent`, IA d'objectif uniquement (pas de combattante d'appoint) | **Testé en jeu** | [Récapitulatif](docs/OMTK_IASkills_Reforger_Recap.md) |
+| `difficulty_check` | Avertissement si la difficulté n'est pas *elite* — sans rapport avec `IA_skills` malgré le regroupement initial | **En standby** — décision OFCRA | [Récapitulatif](docs/OMTK_IASkills_Reforger_Recap.md) |
+| `tactical_paradrop` | Parachutage en début de mission | **En standby** — décision OFCRA | non audité |
+| `3rd-parties` | Emplacement pour scripts externes — noté « currently not used » dans le README d'OMTK | **En standby** — décision OFCRA | non audité |
 | `radio_settings` | Config — fréquences et clés dans la config de faction | Doc seulement, rien vérifié en jeu | [Récapitulatif](docs/OMTK_Radio_Reforger_Recap.md) |
 | `radio_lock` | Déjà natif — chiffrement par faction au spawn | Doc seulement, rien vérifié en jeu | [Récapitulatif](docs/OMTK_Radio_Reforger_Recap.md) |
 | `test_mode` | Déjà natif — Debug Areas, exécutables Diag, Remote Console | Doc seulement, procédure à écrire | [Récapitulatif](docs/OMTK_TestMode_Reforger_Recap.md) |
@@ -141,18 +144,32 @@ confirmés en jeu. Rien de bloquant identifié à ce jour au-delà des points li
 
 **`kill_logger`** — chaîne complète testée en jeu. Rien de bloquant identifié.
 
-### Modules pas nécessaires (retirés de la liste)
+### Modules en standby — décision OFCRA
 
-- **`dynamic_startup`** — pas un module toolkit : la mise en place Area/Layer/Slot se fait à la
-  main par le créateur de mission, chaque semaine, directement dans le World Editor
-- **`infantry_loadouts`** — abandonné, l'OFCRA n'en a pas besoin (RHS: Status Quo fournit déjà les
-  factions AFRF/USAF)
+Mis de côté volontairement, à reprendre plus tard si le besoin se confirme :
+
+- **`3rd-parties`** — emplacement pour scripts externes ; noté « currently not used » dans le
+  README d'OMTK lui-même. C'est pourtant là que vit le mode spectateur (EG Spectator).
+- **`difficulty_check`** — affiche un avertissement si la mission tourne à une difficulté autre
+  qu'*elite*. Sans rapport avec `IA_skills` malgré leur regroupement initial dans ce document.
+- **`dynamic_startup`** — génération dynamique de mission (modes *markers* et *interactive*).
+  La mise en place Area/Layer/Slot se ferait de toute façon à la main par le créateur de mission,
+  chaque semaine, dans le World Editor.
+- **`tactical_paradrop`** — parachutage en début de mission, avec altitude et fenêtre de temps
+  réglables. Jamais audité.
+
+### Modules pas nécessaires (abandonnés)
+
+- **`infantry_loadouts`** — l'OFCRA n'en a pas besoin (RHS: Status Quo fournit déjà les factions
+  AFRF/USAF). N'existe d'ailleurs pas comme dossier dans le dépôt OMTK source.
 
 ### Modules jamais construits (doc théorique seulement)
 
-- ~~**`IA_skills` / `difficulty_check`**~~ — **fait, testé en jeu** : `SCR_AIConfigComponent`, 4 cases
-  à décocher (Danger Events, Perception, Attack, Take Cover), confirmé en jeu. Le volet `ia_manager`
-  (IA combattante d'appoint) reste hors périmètre.
+- ~~**`IA_skills`**~~ — **fait, testé en jeu** : `SCR_AIConfigComponent`, 4 cases
+  à décocher (Danger Events, Perception, Attack, Take Cover), confirmé en jeu. `difficulty_check`
+  est en standby. **Correction** : `ia_manager` ne déploie pas d'IA combattante d'appoint comme
+  ce document l'a longtemps affirmé — lecture du code source faite, il bride les compétences de
+  toutes les IA et neutralise les slots jouables vides (voir récap `IA_skills` §9bis).
 - **`radio_lock` / `radio_settings`** — vérifier en jeu le chiffrement par faction natif ; **ajouter
   un module d'effacement/reset de radio** — si une radio est perdue au profit de l'ennemi, la squad
   qui l'a perdue doit pouvoir la vider **en s'approchant physiquement de la radio** (interaction de
@@ -174,11 +191,41 @@ confirmés en jeu. Rien de bloquant identifié à ce jour au-delà des points li
 
 ### Modules jamais audités
 
-`respawn_mode`, `view_distance`, `zeus_admins`, `rambo_warn`, `uniform_lock`, `tactical_paradrop`,
-`vehicles_thermalimaging`, `map_exploration`, `3rd-parties` — à confronter au dépôt source OMTK
-avant de considérer l'audit terminé. S'y ajoute le **mode spectateur** (`OMTK_MODULE_SPECTATOR`,
-addon tiers EG Spectator Mode) — hors de la structure habituelle des dossiers `omtk/`, découvert
-séparément, directement lié à la règle « aucun respawn » de l'OFCRA.
+`respawn_mode`, `view_distance`, `vehicles_thermalimaging`, `map_exploration` — à confronter au
+dépôt source OMTK avant de considérer l'audit terminé. S'y ajoute le **mode spectateur**
+(`OMTK_MODULE_SPECTATOR`, addon tiers EG Spectator Mode) — hors de la structure habituelle des
+dossiers `omtk/`, découvert séparément, directement lié à la règle « aucun respawn » de l'OFCRA.
+
+**Trois modules dont la fonction réelle a été établie par lecture du code source** (pas encore
+portés, mais on sait désormais ce qu'ils font) :
+
+- **`rambo_warn`** — anti-loup solitaire. Vérifie en boucle la distance entre chaque joueur et les
+  membres vivants de son groupe (seuils par défaut : 200 m à pied, 600 m en véhicule, ajustables).
+  Au-delà : message à l'écran, écriture RPT locale, et **signalement au serveur au niveau de log
+  `CHEAT`**. Gère les cas particuliers (aéronefs, prisonniers menottés, blessés inconscients).
+  **Dépend d'ACE** (`ace_common_fnc_isAwake`, `ace_captives_isHandcuffed`) — dépendance à traiter
+  pour le portage.
+- **`zeus_admins`** — crée 10 curateurs Zeus au démarrage ; chaque client dont l'UID Steam figure
+  dans `admin_uids` s'en voit attribuer un. C'est la source du `admin_uids` cherché pour le panneau
+  admin. Le pendant Reforger est l'attribution des droits **Game Master**, à recouper avec le
+  récap `ui`.
+- **`uniform_lock`** — verrouille le slot uniforme dans l'inventaire (et restaure de force
+  l'uniforme d'origine si le joueur contourne), pour empêcher de porter celui du camp adverse.
+  Un mode alternatif (`wwyw.sqf`, « wear what you want ») lève la restriction. **Rien à voir avec
+  le « Fix uniform Bug »** du panneau admin, contrairement à ce qui était supposé.
+
+**Constats issus de la lecture de `load_modules.sqf`** (le point d'entrée réel) :
+- `uniform_lock` et `ia_manager` sont chargés **sans aucune condition** — impossible de les
+  désactiver par paramètre de mission.
+- `respawn_mode` a une condition (`< 999999`) qui ne filtre rien : toujours chargé.
+- `vehicles_thermalimaging` a une logique **inversée** (`< 1`) : le script se lance quand le
+  paramètre est à zéro, ce qui suggère qu'il sert à *retirer* les thermiques.
+- `OMTK_MODULE_ARTY_COMPUTER` n'est pas un module mais une ligne inline
+  (`enableEngineArtillery false`) — jamais audité.
+- Cinq « modules » de notre index n'existent **pas** comme dossiers dans le dépôt source :
+  `infantry_loadouts`, `vehicles_cargos`, `IA_skills`, `radio_settings`, `test_mode`. Ce sont des
+  paramètres de mission ou des concepts, pas du code — ce qui explique rétrospectivement pourquoi
+  certains se sont révélés « pas nécessaires » : il n'y avait rien à porter.
 
 ### Nouvelles strates de statistiques (pas dans OMTK d'origine)
 
