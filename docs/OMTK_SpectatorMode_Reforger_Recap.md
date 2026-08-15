@@ -368,6 +368,51 @@ Workbench, où serveur et client sont la même machine).
 
 ---
 
+### 4ter. Sélection du joueur suivi au clavier — NON RÉSOLU
+
+Objectif : une touche pour passer au joueur vivant suivant, afin de rendre le suivi (§3ter,
+§3quater) réellement utilisable sans construire d'interface. Le mécanisme de suivi lui-même
+fonctionne ; **c'est la réception de la touche qui échoue.**
+
+**Symptôme constant** : les listeners s'enregistrent sans erreur, `ActivateContext()` s'exécute
+sans erreur, les logs confirment que tout le code tourne — mais **aucune touche ne déclenche
+jamais le callback**. Aucun message d'erreur nulle part.
+
+**Cinq pistes testées, toutes écartées :**
+
+1. **Touches occupées par la caméra libre** — E / A / F testées : A faisait monter la caméra
+   (action native), E et F ne faisaient rien. Remplacées par le pavé numérique (9 / 7 / 8),
+   improbables d'être captées : **aucun changement**.
+2. **Priorité du contexte trop basse** — `OMTK_SpectatorContext` passé de 43 à 200, bien au-dessus
+   du `ManualCameraContext` de la caméra : **aucun changement**.
+3. **Ordre d'activation** — hypothèse : la caméra prend la main sur les entrées après son
+   apparition et écrase le contexte. `ActivateContext()` décalé d'une seconde après la création
+   de la caméra (`CallLater`) : **aucun changement**.
+4. **GUID inventés dans le `.conf`** — les GUID d'`InputSource` avaient été fabriqués en modifiant
+   ceux de GRAD Spectator. Config réduite à **une seule action** reprenant leurs GUID **exacts**,
+   seule la touche changée : **aucun changement**.
+5. **Enregistrement depuis un composant de GameMode** — GRAD Spectator fait tout depuis une
+   `modded class SCR_PlayerController`. Refactoring complet des entrées vers
+   `OMTK_SpectatorPlayerController.c` sur ce modèle, listeners enregistrés depuis le
+   PlayerController local : le log confirme que le code tourne (« entrées activées depuis le
+   PlayerController »), mais **aucun changement** sur la réception de la touche.
+
+**Chemin du fichier vérifié** : `addons/OFCRA/Configs/System/chimeraInputCommon.conf` — correct,
+donc ce n'est pas un problème d'emplacement.
+
+**Piste restante, non testée — la plus probable désormais** : notre `chimeraInputCommon.conf` est
+un fichier **minimal** qui ne déclare que nos actions, alors qu'il **remplace** un fichier natif du
+jeu contenant normalement l'ensemble des actions et contextes. Ce remplacement partiel invalide
+peut-être silencieusement la déclaration. À tester : récupérer le fichier natif complet depuis les
+données du jeu et y **ajouter** nos actions, au lieu de le remplacer par un fichier réduit.
+
+**Conséquence pratique** : le suivi de joueur fonctionne (§3ter/§3quater) mais n'est déclenchable
+que par script pour l'instant — aucune interaction joueur possible tant que ce point n'est pas
+résolu.
+
+---
+
+
 ## 5. Analyse — dépendre ou réimplémenter
 Le tableau après lecture du code :
 
@@ -406,8 +451,13 @@ du projet.
   `TrySwitchToControlledEntityCamera()` inutilisable (pas de paramètre de cible). Seule piste
   restante : suivi de l'os de la tête frame par frame. À reprendre uniquement si l'OFCRA le juge
   indispensable.
-- Construire le suivi d'unité : sélection, bascule 1PP/3PP, et l'équivalent de la carte custom
-  Arma 3 pour changer d'unité suivie (aucun précédent réutilisable trouvé, ni natif ni communautaire).
+- **Sélection du joueur suivi — BLOQUÉ (§4ter)** : cinq pistes testées et écartées, aucune touche
+  ne remonte jamais au callback malgré un code qui s'exécute correctement. Piste restante : partir
+  du fichier `chimeraInputCommon.conf` natif complet et y ajouter nos actions, au lieu de le
+  remplacer par un fichier minimal. Tant que ce point n'est pas résolu, le suivi n'est déclenchable
+  que par script.
+- Construire l'équivalent de la carte custom Arma 3 pour changer d'unité suivie, et la bascule
+  1PP/3PP (aucun précédent réutilisable trouvé, ni natif ni communautaire).
 - Décider du sort des modes de vision (NV/thermique en 1PP) et du mode lampe torche — présents
   dans le mode Arma 3 actuel, à confirmer comme nécessaires ou non côté OFCRA.
 - **Tracé de projectiles (touche `O`)** — tester en priorité si l'API `Shape` s'affiche dans un
