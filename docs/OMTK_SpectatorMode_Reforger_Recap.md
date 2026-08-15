@@ -311,49 +311,60 @@ faisable sur Reforger**. Mais inexploitable ici :
 
 ---
 
-### 4bis. Déclenchement à la mort — construit, partiellement fonctionnel
+### 4bis. Déclenchement à la mort — FONCTIONNEL, testé en jeu
 
-`OMTK_SpectatorComponent.c` (composant sur le GameMode) :
+`OMTK_SpectatorComponent.c` (composant sur le GameMode). Chaîne complète confirmée en jeu :
+mort → RPC vers le client → caméra libre → menu de déploiement fermé → aucun respawn possible.
 
-- **Hook de mort** : `OnPlayerKilled(SCR_InstigatorContextData)` — même point d'accroche que
-  `OMTK_KillLoggerComponent`, déjà éprouvé. **Fonctionne** : la mort est bien détectée côté serveur.
-- **Création de la caméra** : **fonctionne** — à la mort, la caméra spectateur apparaît bien.
+**Hook de mort** : `OnPlayerKilled(SCR_InstigatorContextData)` — même point d'accroche que
+`OMTK_KillLoggerComponent`, déjà éprouvé.
 
-**⚠ Problème 1 — le RPC serveur → client ne se propage pas.** `Rpc(RpcDo_EnableSpectator, victimId)`
-depuis le composant : le log de départ apparaît, mais **aucune trace de réception**, même en solo
-Workbench (log placé avant tout filtre pour l'écarter comme cause). Cause non élucidée —
-probablement un problème de routage/réplication du composant. **Contourné en appel direct**, ce qui
-suffit en solo (serveur = client) mais **ne fonctionnera pas en session réseau réelle** : le serveur
-créerait la caméra chez lui, pas chez le joueur mort. À résoudre avant tout usage multijoueur.
+**RPC serveur → client** : `Rpc(RpcDo_EnableSpectator, victimId)` avec
+`[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]` et filtrage manuel du `playerId` côté client
+(patron repris de GRAD Spectator). **Fonctionne** — un premier test avait laissé croire le
+contraire, en réalité le log de réception était placé après le filtre et masquait le succès.
 
-**⚠ Problème 2 — le cycle de respawn natif n'est pas coupé.** Testé en jeu : après la mort, le
-parcours est mort → écran noir → menu de déploiement → clic Deploy → **un nouveau personnage
-jouable apparaît**, alors que le joueur est en caméra. Deux corps au sol et un personnage vivant
-observés simultanément — exactement ce que la règle « aucun respawn » interdit.
+**Création de la caméra** : voir §3ter/§3quater.
 
-**Approches testées et ÉCARTÉES** — trois tentatives, aucune viable :
+**Blocage du respawn — solution retenue, en deux temps :**
 
-1. **`modded class SCR_MenuSpawnLogic`, `OnPlayerEntityLost_S()` sans appeler `super`** (le patron
-   de GRAD Spectator). Résultat en jeu : **le joueur ne peut plus apparaître du tout**, la partie
-   ne démarre même pas — le spawn **initial** passe par le même chemin, pas seulement le respawn
-   après mort.
-2. **`CanPlayerSpawn_S(int playerId)`** sur `SCR_RespawnSystemComponent`, puis sur
-   `SCR_MenuSpawnLogic` : n'existe sur ni l'une ni l'autre (erreur de compilation *"marked as
-   override but does not exist"*).
-3. **`modded class SCR_BaseGameMode` avec la vraie signature de `CanPlayerSpawn_S`**, trouvée par
-   recherche de symbole (`SCR_BaseGameMode.c` ligne 1574) :
+1. **`ServerSetEnableRespawn(false)`** appelé à la **fin du warm-up** (dans `OMTK_EndWarmup`) :
    ```cpp
-   bool CanPlayerSpawn_S(SCR_SpawnRequestComponent requestComponent, SCR_SpawnHandlerComponent handlerComponent,
-                         SCR_SpawnData data, out SCR_ESpawnResult result = SCR_ESpawnResult.SPAWN_NOT_ALLOWED)
+   SCR_RespawnSystemComponent respawnSys = SCR_RespawnSystemComponent.GetInstance();
+   respawnSys.ServerSetEnableRespawn(false);
    ```
-   Résultat : **crash du Workbench** (*Access violation. Illegal read*). Modder une méthode aussi
-   centrale du cycle de spawn, avec un paramètre `out`, fait planter le moteur plutôt que remonter
-   une erreur propre.
+   C'est la méthode **officielle** prévue par le moteur, sans risque, contrairement aux overrides
+   forcés testés auparavant. Effet visible en jeu : le bouton du menu passe de « Deploy » à
+   **« Spawning disabled »**. Appelée à la fin du warm-up et pas au démarrage car l'effet est
+   **global** : trop tôt, elle bloquerait aussi le spawn initial.
 
-**Conclusion** : bloquer le respawn depuis l'intérieur du cycle de spawn natif est trop invasif —
-deux tentatives sur trois ont cassé le jeu. Piste plus sûre à explorer : empêcher le joueur mort
-d'**accéder au menu de déploiement** (ou fermer ce menu automatiquement côté client), sans jamais
-toucher au cycle de spawn du moteur. Moins élégant, mais sans risque de crash.
+2. **`Deploy Menu Open Delay` réglé très haut** (999999) sur `SCR_RespawnSystemComponent` dans le
+   World Editor. **C'était la clé du dernier blocage** : ce champ valait 4 secondes par défaut, et
+   le système rouvrait donc le menu 4 s après la mort, par-dessus la caméra — insortable une fois
+   le respawn désactivé. Aucun `CloseRespawnMenu()` par script ne pouvait gagner cette course ;
+   le réglage éditeur résout le problème proprement.
+
+`SCR_RespawnSystemComponent.CloseRespawnMenu()` (statique) reste appelé pour fermer le menu
+ouvert à l'instant de la mort.
+
+**Approches ÉCARTÉES** pour le blocage du respawn — toutes tentées avant de trouver la bonne :
+
+1. **`modded class SCR_MenuSpawnLogic`, `OnPlayerEntityLost_S()` sans appeler `super`** (patron de
+   GRAD Spectator) : **le joueur ne peut plus apparaître du tout**, la partie ne démarre pas — le
+   spawn **initial** passe par le même chemin.
+2. **`CanPlayerSpawn_S(int playerId)`** sur `SCR_RespawnSystemComponent` puis `SCR_MenuSpawnLogic` :
+   n'existe sur ni l'une ni l'autre (erreur de compilation).
+3. **`modded class SCR_BaseGameMode` avec la vraie signature de `CanPlayerSpawn_S`** (trouvée par
+   recherche de symbole, `SCR_BaseGameMode.c` ligne 1574) : **crash du Workbench**
+   (*Access violation*). Modder une méthode aussi centrale du cycle de spawn, avec un paramètre
+   `out`, fait planter le moteur.
+
+**Leçon générale** : sur ce système, préférer les méthodes officiellement exposées
+(`ServerSetEnableRespawn`) et les réglages d'éditeur (`Deploy Menu Open Delay`) aux `modded class`
+sur le cycle de spawn.
+
+**Reste à vérifier** : le comportement en session réseau réelle (tout ceci est validé en solo
+Workbench, où serveur et client sont la même machine).
 
 ---
 
@@ -405,14 +416,9 @@ du projet.
   `kill_logger`.
 - Réintégrer une garde anti-déconnexion (cf. §4.1) dans toute logique branchée sur
   `OnPlayerEntityLost_S`.
-- **Déclenchement à la mort (§4bis)** — construit, caméra créée à la mort. Deux problèmes ouverts :
-  (a) le RPC serveur → client ne se propage pas (contourné en appel direct, valable en solo
-  uniquement — bloquant pour le multijoueur) ; (b) le cycle de respawn natif n'est pas coupé, un
-  nouveau personnage apparaît quand même. **Trois approches testées et écartées** pour (b), dont
-  une qui empêchait tout spawn et une qui faisait crasher le Workbench — voir §4bis. Prochaine
-  piste : bloquer l'accès au menu de déploiement plutôt que le cycle de spawn lui-même.
-- Trancher le déclenchement : caméra seule sans respawn de corps (approche à privilégier,
-  fidèle à la règle no-respawn) plutôt que le respawn+caméra de GRAD Spectator.
+- ~~**Déclenchement à la mort**~~ — **fait, fonctionnel en jeu (§4bis)** : mort → RPC → caméra libre
+  → menu fermé → respawn bloqué (`ServerSetEnableRespawn(false)` à la fin du warm-up +
+  `Deploy Menu Open Delay` réglé très haut dans l'éditeur). Reste à valider en session réseau réelle.
 - Vérifier la cohabitation avec `kill_logger` et `score_board` une fois le mécanisme choisi.
 
 ---
