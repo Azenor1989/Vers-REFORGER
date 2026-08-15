@@ -413,6 +413,57 @@ résolu.
 ---
 
 
+### 4quater. PISTE PRINCIPALE À EXPLORER — Game Master bridé plutôt qu'un spectateur maison
+
+Idée venue de l'OFCRA en fin de session, et **probablement meilleure que tout ce qui précède** :
+plutôt que de reconstruire caméra + curseur + liste + sélection, donner au joueur mort un
+**Game Master privé de tout droit d'édition**.
+
+Le Game Master apporte déjà, testé par Bohemia : caméra libre, curseur permanent, rotation au
+clic droit maintenu, liste des joueurs, action « Spectate » sur un joueur, navigation par carte.
+C'est le cahier des charges du §2, sauf qu'il existe déjà.
+
+**La question qui décidait de tout — peut-on vraiment retirer les droits d'édition ? — a une
+réponse favorable dans la doc du moteur :**
+
+1. **Le concept « limited » est natif.** `SCR_EditorModeEntity` expose un attribut :
+   *« Anti-exploit restriction will be in effect when all available modes are marked as limited »*.
+   Un éditeur bridé est donc un cas d'usage prévu.
+
+2. **La sécurité est structurelle, pas cosmétique** — point décisif. La doc de
+   `SCR_EditorModeEntity` précise : *« Player can access the editor mode as long as the entity
+   exists. This is for security reasons. If the mode entity always existed, but mode access was
+   disabled in GUI, functions for communication on server could potentially be exploited. »*
+
+   Autrement dit : on ne masque pas des boutons, on **ne crée pas** l'entité de mode. Un joueur
+   mort sans mode `EDIT` ne peut pas éditer même en trichant côté client — les fonctions serveur
+   ne lui sont pas accessibles. C'est la garantie qu'il fallait pour un TvT compétitif.
+
+3. **Plusieurs modes existent** (`EEditorMode`), dont un mode photo — cohérent avec le prefab
+   `ManualCameraPhoto.et` croisé à côté de `ManualCameraSpectate.et` (§4.1). Un mode caméra sans
+   droits d'édition existe donc peut-être déjà tout fait.
+
+**Architecture concernée** : `SCR_EditorManagerEntity` (l'entité qui active l'éditeur pour un
+joueur), `SCR_EditorModeEntity` (un mode = un jeu de fonctionnalités, un seul actif à la fois),
+`SCR_BaseEditorComponent` (les fonctionnalités individuelles). Les modes par défaut sont définis
+dans `SCR_EditorManagerCore` (configs dans `Configs/Core`).
+
+**Ce que ça remplacerait** : §3ter/§3quater (caméra et suivi), §4ter (sélection au clavier,
+bloquée), et le panneau de liste en cours de construction. Le déclenchement à la mort (§4bis) et
+le blocage du respawn resteraient valables tels quels.
+
+**À vérifier avant de s'engager** :
+- La liste réelle des valeurs de `EEditorMode` et lequel correspond à un mode observation.
+- Comment attribuer un `SCR_EditorManagerEntity` limité à un joueur précis, à sa mort, sans
+  passer par la liste d'admins (`zeus_admins` côté Arma 3 attribuait des curateurs par UID).
+- Que le mode retenu ne donne réellement accès à aucune action de création/modification/téléport.
+- L'impact sur `kill_logger` et `score_board` (le joueur mort reste-t-il compté quelque part ?).
+
+**Statut** : piste identifiée en fin de session, rien de testé. À traiter en priorité avant de
+poursuivre la construction maison, qui pourrait devenir inutile.
+
+---
+
 ## 5. Analyse — dépendre ou réimplémenter
 Le tableau après lecture du code :
 
@@ -451,6 +502,10 @@ du projet.
   `TrySwitchToControlledEntityCamera()` inutilisable (pas de paramètre de cible). Seule piste
   restante : suivi de l'os de la tête frame par frame. À reprendre uniquement si l'OFCRA le juge
   indispensable.
+- **PRIORITÉ — évaluer la piste « Game Master bridé » (§4quater)** avant de poursuivre la
+  construction maison : le moteur prévoit nativement des modes d'éditeur « limited », avec une
+  sécurité structurelle (le joueur n'a pas l'entité de mode, donc pas d'accès serveur aux
+  fonctions d'édition). Si elle tient, elle remplace le suivi, la sélection et le panneau.
 - **Sélection du joueur suivi — BLOQUÉ (§4ter)** : cinq pistes testées et écartées, aucune touche
   ne remonte jamais au callback malgré un code qui s'exécute correctement. Piste restante : partir
   du fichier `chimeraInputCommon.conf` natif complet et y ajouter nos actions, au lieu de le
